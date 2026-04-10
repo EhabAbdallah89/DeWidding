@@ -1,24 +1,19 @@
-import { getRoleLabel } from '../utils/eventUtils'
-
-function UserLayout({ currentUser, onLogout, currentPage, onChangePage, children }) {
+function UserLayout({ currentUser, onLogout, children }) {
   return (
     <div className="layout">
       <div className="topbar">
         <div><div className="topbar-title">DEWEDDING</div><div className="topbar-subtitle">مرحبًا، {currentUser.name}</div></div>
-        <div className="topbar-actions"><span className="badge-role">{getRoleLabel(currentUser.role)}</span><button className="secondary-btn" onClick={onLogout}>تسجيل الخروج</button></div>
-      </div>
-      <div className="page-container">
-        <div className="card">
-          <div className="button-row">
-            <button className={currentPage==='dashboard' ? 'primary-btn' : 'ghost-btn'} onClick={()=>onChangePage('dashboard')}>الرئيسية</button>
-            <button className={currentPage==='my-events' ? 'primary-btn' : 'ghost-btn'} onClick={()=>onChangePage('my-events')}>أعراسي</button>
-            <button className={currentPage==='profile' ? 'primary-btn' : 'ghost-btn'} onClick={()=>onChangePage('profile')}>الإعدادات</button>
+        <div className="topbar-actions">
+          <div className="user-chip">
+            {currentUser.profileImage ? <img src={currentUser.profileImage} alt={currentUser.name} className="user-chip-avatar" /> : <div className="user-chip-avatar placeholder-avatar">{currentUser.name?.[0] || 'U'}</div>}
+            <span>{currentUser.name}</span>
           </div>
+          <span className="badge-role">{currentUser.role}</span>
+          <button className="secondary-btn" onClick={onLogout}>تسجيل الخروج</button>
         </div>
-        {children}
       </div>
+      <div className="page-container">{children}</div>
     </div>
   )
 }
-
 export default UserLayout

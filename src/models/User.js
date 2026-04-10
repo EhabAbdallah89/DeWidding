@@ -3,24 +3,26 @@ export class User {
     id,
     name,
     phone,
+    password,
+    email = '',
     village,
     profileImage = '',
-    role = 'user',
+    role = 'regular',
     isActive = true,
     myEvents = [],
     phoneVerified = false,
-    avatarMode = 'default',
   }) {
     this.id = id
     this.name = name
     this.phone = phone
+    this.password = password
+    this.email = email
     this.village = village
     this.profileImage = profileImage
     this.role = role
     this.isActive = isActive
-    this.myEvents = myEvents
+    this.myEvents = Array.isArray(myEvents) ? myEvents : []
     this.phoneVerified = phoneVerified
-    this.avatarMode = avatarMode
   }
 
   static create(data) {
@@ -36,13 +38,14 @@ export class User {
       id: this.id,
       name: this.name,
       phone: this.phone,
+      password: this.password,
+      email: this.email,
       village: this.village,
       profileImage: this.profileImage,
       role: this.role,
       isActive: this.isActive,
       myEvents: this.myEvents,
       phoneVerified: this.phoneVerified,
-      avatarMode: this.avatarMode,
     }
   }
 }

@@ -10,12 +10,12 @@ export function saveUsers(users) {
   saveValue(STORAGE_KEYS.usersData, users)
 }
 
-export function normalizePhone(phone) {
-  return String(phone || '').replace(/\D/g, '')
+export function normalizePhone(phone = '') {
+  return String(phone).replace(/\D/g, '')
 }
 
-export function isValidIsraeliMobile(phone) {
-  return /^05\d{8}$/.test(normalizePhone(phone))
+export function normalizeEmail(email = '') {
+  return String(email).trim().toLowerCase()
 }
 
 export function findUserByPhone(users, phone) {
@@ -24,33 +24,46 @@ export function findUserByPhone(users, phone) {
 }
 
 export function registerUser(users, userData) {
-  const normalizedPhone = normalizePhone(userData.phone)
+  const phone = normalizePhone(userData.phone)
+  const email = normalizeEmail(userData.email)
 
-  if (!userData.name.trim() || !normalizedPhone || !userData.village) {
-    return { success: false, message: 'يرجى تعبئة جميع الحقول المطلوبة' }
-  }
-
-  if (!isValidIsraeliMobile(normalizedPhone)) {
-    return { success: false, message: 'رقم الهاتف غير صحيح' }
-  }
-
-  const existingUser = findUserByPhone(users, normalizedPhone)
-  if (existingUser) {
+  const existingPhoneUser = users.find((user) => normalizePhone(user.phone) === phone)
+  if (existingPhoneUser) {
     return { success: false, message: 'رقم الهاتف مسجل مسبقًا' }
   }
 
+  if (email) {
+    const existingEmailUser = users.find((user) => normalizeEmail(user.email) === email)
+    if (existingEmailUser) {
+      return { success: false, message: 'البريد الإلكتروني مسجل مسبقًا' }
+    }
+  }
+
   const newUser = User.create({
-    name: userData.name.trim(),
-    phone: normalizedPhone,
-    village: userData.village,
-    role: 'user',
+    ...userData,
+    phone,
+    email,
+    role: 'regular',
     myEvents: [],
-    phoneVerified: false,
-    profileImage: userData.profileImage || '',
-    avatarMode: userData.profileImage ? 'local' : 'default',
+    phoneVerified: true,
   }).toJSON()
 
   return { success: true, user: newUser, users: [...users, newUser] }
+}
+
+export function loginWithPassword(users, phone, password) {
+  const normalizedPhone = normalizePhone(phone)
+  const normalizedPassword = String(password ?? '').trim()
+
+  const user = users.find(
+    (item) => normalizePhone(item.phone) === normalizedPhone && String(item.password ?? '').trim() === normalizedPassword,
+  )
+
+  if (!user) {
+    return { success: false, message: 'رقم الهاتف أو كلمة المرور غير صحيحة' }
+  }
+
+  return { success: true, user }
 }
 
 export function loginWithOtp(users, phone) {
@@ -59,11 +72,7 @@ export function loginWithOtp(users, phone) {
     return { success: false, message: 'رقم الهاتف غير موجود' }
   }
 
-  return { success: true, user }
-}
-
-export function markPhoneVerified(users, userId) {
-  return users.map((user) => (user.id === userId ? { ...user, phoneVerified: true } : user))
+  return { success: true, user, message: 'تم تسجيل الدخول بنجاح عبر OTP' }
 }
 
 export function updateUserProfile(users, userId, payload) {
@@ -73,23 +82,22 @@ export function updateUserProfile(users, userId, payload) {
           ...user,
           name: payload.name,
           profileImage: payload.profileImage,
-          avatarMode: payload.profileImage ? 'local' : 'default',
         }
       : user,
   )
 }
 
-export function updateUserRole(users, userId, nextRole) {
-  return users.map((user) => (user.id === userId ? { ...user, role: nextRole } : user))
-}
+export function updateUserRole(users, userId, role) {
+  if (role === 'admin') {
+    return users
+  }
 
-export function toggleMyEventForUser(users, userId, eventId) {
-  return users.map((user) => {
-    if (user.id !== userId) return user
-    const alreadyExists = user.myEvents.includes(eventId)
-    return {
-      ...user,
-      myEvents: alreadyExists ? user.myEvents.filter((id) => id !== eventId) : [...user.myEvents, eventId],
-    }
-  })
+  return users.map((user) =>
+    user.id === userId
+      ? {
+          ...user,
+          role,
+        }
+      : user,
+  )
 }
