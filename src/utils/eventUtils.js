@@ -12,7 +12,12 @@ export function validateEventForm(formData, selectedVillage, user){
 export function filterEvents(eventsList, searchText){
   const search = searchText.trim().toLowerCase()
   if(!search) return eventsList
-  return eventsList.filter((event)=>event.groom.toLowerCase().includes(search) || event.bride.toLowerCase().includes(search) || event.title.toLowerCase().includes(search))
+  return eventsList.filter((event)=>
+   (event.groom || '').toLowerCase().includes(search) ||
+    (event.bride || '').toLowerCase().includes(search) ||
+    (event.title || '').toLowerCase().includes(search) ||
+    (event.hall || '').toLowerCase().includes(search)
+  )
 }
 export function sortEvents(eventsList){ return [...eventsList].sort((a,b)=>new Date(a.date)-new Date(b.date)) }
 export function formatDisplayDate(date){ return new Date(date).toLocaleDateString('en-GB') }

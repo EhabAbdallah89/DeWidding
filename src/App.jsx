@@ -48,7 +48,26 @@ function App() {
   useEffect(() => { saveValue(STORAGE_KEYS.searchText, search) }, [search])
   useEffect(() => { saveValue(STORAGE_KEYS.currentPage, currentPage) }, [currentPage])
 
+useEffect(() => {
+  if (!currentUser) {
+    setProfileData({
+      name: '',
+      profileImage: ''
+    })
+    return
+  }
 
+  setProfileData({
+    name: currentUser.name || '',
+    profileImage: currentUser.profileImage || ''
+  })
+}, [currentUser])
+
+useEffect(() => {
+  if (!currentUser?.village) return
+
+  setSelectedVillage(currentUser.village)
+}, [currentUser])
 
   function resetForm() { setFormData({ groom:'', bride:'', hall:'', date:'' }); setEditingEventId(null) }
   function clearMessages() { setErrorMessage(''); setSuccessMessage('') }
@@ -91,10 +110,24 @@ function App() {
   }
 
   function handleProfileChange(event) { const { name, value } = event.target; setProfileData((prev)=>({ ...prev, [name]: value })) }
+
+  
   function handleProfileImageChange(event) {
-    const file = event.target.files?.[0]; if(!file) return
-    setProfileData((prev)=>({ ...prev, profileImage: file.name }))
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+
+  reader.onload = () => {
+    setProfileData((prev) => ({
+      ...prev,
+      profileImage: reader.result
+    }))
   }
+
+  reader.readAsDataURL(file)
+}
+
   function handleProfileSave() {
     if(!currentUser) return
     const updatedUsers = updateUserProfile(usersData, currentUser.id, profileData)
@@ -105,6 +138,7 @@ function App() {
   function handleLogout() {
     setCurrentUserId(null)
     setSelectedVillage('')
+    setProfileData({name: '',profileImage: ''})
     setSearch('')
     setCurrentPage('dashboard')
     resetForm()
@@ -179,7 +213,25 @@ function App() {
 
   const filteredEvents = useMemo(()=>filterEvents(allVisibleEvents, search), [allVisibleEvents, search])
   const sortedEvents = useMemo(()=>sortEvents(filteredEvents), [filteredEvents])
-  const pendingEvents = useMemo(()=>sortedEvents.filter((item)=>item.status==='pending'), [sortedEvents])
+  //const pendingEvents = useMemo(()=>sortedEvents.filter((item)=>item.status==='pending'), [sortedEvents])
+  const pendingEvents = useMemo(() => {
+  if (!currentUser) return []
+
+  const pendingSource = isManagementUser(currentUser)
+    ? eventsData.filter(
+        (eventItem) =>
+          eventItem.status === 'pending' && canViewEvent(currentUser, eventItem)
+      )
+    : eventsData.filter(
+        (eventItem) =>
+          eventItem.status === 'pending' &&
+          eventItem.village === selectedVillage &&
+          canViewEvent(currentUser, eventItem)
+      )
+
+  return sortEvents(filterEvents(pendingSource, search))
+}, [eventsData, currentUser, selectedVillage, search])
+
   const myEvents = useMemo(() => {
     if(!currentUser) return []
     return sortEvents(eventsData.filter((eventItem)=>eventItem.createdByUserId===currentUser.id))

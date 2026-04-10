@@ -1,5 +1,5 @@
 function AdminLayout({ currentUser, currentPage, onChangePage, onLogout, children }) {
-  const navItems = [{ key:'dashboard', label:'لوحة التحكم' }, { key:'pending', label:'الأعراس المعلقة' }, { key:'my-events', label:'أعراسي' }, { key:'profile', label:'الإعدادات' }]
+  const navItems = [{ key:'dashboard', label:'لوحة التحكم' }, { key:'pending', label:'الأعراس بإنتظار الموافقة' }, { key:'my-events', label:'أعراسي' }, { key:'profile', label:'الإعدادات' }]
   return (
     <div className="layout">
       <div className="topbar">

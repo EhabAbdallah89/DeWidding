@@ -5,7 +5,7 @@ function EventTable({ events, currentUser, onEditEvent, onDeleteEvent, onApprove
   return (
     <div className="table-wrapper">
       <table>
-        <thead><tr><th>التاريخ</th><th>القاعة</th><th>العريس</th><th>العروس</th><th>الحالة</th><th>صاحب الإضافة</th><th>إجراء</th></tr></thead>
+        <thead><tr><th>التاريخ</th><th>القاعة</th><th>العريس</th><th>العروس</th> <th>القرية</th><th>الحالة</th><th>صاحب الإضافة</th><th>إجراء</th></tr></thead>
         <tbody>
           {events.map((event)=>(
             <tr key={event.id}>
@@ -13,6 +13,7 @@ function EventTable({ events, currentUser, onEditEvent, onDeleteEvent, onApprove
               <td>{event.hall}</td>
               <td>{event.groom}</td>
               <td>{event.bride}</td>
+              <td>{event.village || '-'}</td>
               <td><span className={`status-badge status-${event.status}`}>{formatStatusLabel(event.status)}</span></td>
               <td>{event.createdByUserId}</td>
               <td className="actions-cell">
