@@ -1,4 +1,5 @@
 import Avatar from '../components/Avatar'
+import { villages } from '../data/seedData'
 import { getRoleLabel } from '../utils/permissions'
 
 const roleOptions = [
@@ -7,7 +8,7 @@ const roleOptions = [
   { value: 'generalSupervisor', label: 'مشرف عام' },
 ]
 
-function UserManagementPage({ users, currentUser, onChangeUserRole, message, errorMessage }) {
+function UserManagementPage({ users, currentUser, onChangeUserRole, onChangeUserVillage, message, errorMessage }) {
   return (
     <div className="card">
       <h2 className="card-title">إدارة المستخدمين</h2>
@@ -21,6 +22,7 @@ function UserManagementPage({ users, currentUser, onChangeUserRole, message, err
               <th>البريد الإلكتروني</th>
               <th>القرية</th>
               <th>الدور الحالي</th>
+              <th>تعديل القرية</th>
               <th>تعديل الدور</th>
             </tr>
           </thead>
@@ -37,6 +39,17 @@ function UserManagementPage({ users, currentUser, onChangeUserRole, message, err
                 <td>{user.email || '—'}</td>
                 <td>{user.village}</td>
                 <td><span className="badge-role">{getRoleLabel(user.role)}</span></td>
+                <td>
+                  {user.id === currentUser.id ? (
+                    <span className="readonly-role">{user.village}</span>
+                  ) : (
+                    <select value={user.village} onChange={(event) => onChangeUserVillage(user.id, event.target.value)}>
+                      {villages.map((village) => (
+                        <option key={village} value={village}>{village}</option>
+                      ))}
+                    </select>
+                  )}
+                </td>
                 <td>
                   {user.id === currentUser.id ? (
                     <span className="readonly-role">مدير النظام</span>

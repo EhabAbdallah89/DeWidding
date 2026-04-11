@@ -1,56 +1,75 @@
 import RegisterForm from './RegisterForm'
 import LoginForm from './LoginForm'
 import OtpLoginForm from './OtpLoginForm'
+import ForgotPasswordForm from './ForgotPasswordForm'
 
 function AuthPanel(props) {
   const {
     registerData,
     onRegisterChange,
     onRegisterImageChange,
-    onRegisterSubmit,
-    onRegisterReset,
     onSendRegisterOtp,
     onVerifyRegisterOtp,
-    onRegisterOtpCodeChange,
+    onRegisterSubmit,
     registerError,
     registerSuccess,
-    registerOtpMeta,
+    registerOtpSentCode,
+    registerPhoneVerified,
     loginData,
     onLoginChange,
     onLoginSubmit,
     loginError,
     loginSuccess,
-    otpPhone,
-    onOtpPhoneChange,
-    onOtpSubmit,
+    otpLoginData,
+    onOtpLoginChange,
+    onSendLoginOtp,
+    onOtpLoginSubmit,
     otpError,
     otpSuccess,
+    loginOtpSentCode,
+    forgotPasswordData,
+    onForgotPasswordChange,
+    onForgotPasswordSubmit,
+    forgotPasswordError,
+    forgotPasswordSuccess,
   } = props
 
   return (
     <div className="hero">
       <div className="hero-box">
         <h2 className="card-title">منصة إدارة الأعراس والأحداث</h2>
-        <p className="card-subtitle">تسجيل محلي، صلاحيات، اعتماد أولي، وواجهة قابلة للربط لاحقًا مع Firebase.</p>
-        <div><span className="pill">تسجيل</span><span className="pill">OTP</span><span className="pill">صلاحيات</span><span className="pill">قرية افتراضية</span></div>
+        <p className="card-subtitle">تسجيل بحساب كامل، تحقق OTP محلي، وإدارة صلاحيات وأحداث.</p>
+        <div>
+          <span className="pill">OTP</span>
+          <span className="pill">كلمة مرور</span>
+          <span className="pill">صلاحيات</span>
+          <span className="pill">أعراسي</span>
+          <span className="pill">إعادة تعيين</span>
+        </div>
       </div>
       <div>
         <LoginForm loginData={loginData} onChange={onLoginChange} onSubmit={onLoginSubmit} errorMessage={loginError} successMessage={loginSuccess} />
-        <OtpLoginForm otpPhone={otpPhone} onChange={onOtpPhoneChange} onSubmit={onOtpSubmit} errorMessage={otpError} successMessage={otpSuccess} />
+        <OtpLoginForm otpData={otpLoginData} onChange={onOtpLoginChange} onSendOtp={onSendLoginOtp} onSubmit={onOtpLoginSubmit} errorMessage={otpError} successMessage={otpSuccess} sentCode={loginOtpSentCode} />
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
         <RegisterForm
           registerData={registerData}
           onChange={onRegisterChange}
           onImageChange={onRegisterImageChange}
-          onSubmit={onRegisterSubmit}
-          onReset={onRegisterReset}
           onSendOtp={onSendRegisterOtp}
           onVerifyOtp={onVerifyRegisterOtp}
-          onOtpCodeChange={onRegisterOtpCodeChange}
+          onSubmit={onRegisterSubmit}
           errorMessage={registerError}
           successMessage={registerSuccess}
-          otpMeta={registerOtpMeta}
+          otpSentCode={registerOtpSentCode}
+          otpVerified={registerPhoneVerified}
+        />
+        <ForgotPasswordForm
+          formData={forgotPasswordData}
+          onChange={onForgotPasswordChange}
+          onSubmit={onForgotPasswordSubmit}
+          errorMessage={forgotPasswordError}
+          successMessage={forgotPasswordSuccess}
         />
       </div>
     </div>

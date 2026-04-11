@@ -8,8 +8,11 @@ import {
   loginWithPassword,
   loginWithOtp,
   updateUserProfile,
+  updateUserVillage,
+  sendOtpCode,
+  verifyOtpCode,
+  resetPasswordWithEmail,
   updateUserRole,
-  normalizePhone,
 } from './services/userService'
 import { loadValue, saveValue, STORAGE_KEYS } from './services/storageService'
 import { Event } from './models/Event'
@@ -22,8 +25,11 @@ import {
   canRejectEvent,
   getNewEventStatus,
   isManagementUser,
+  canManageUsers,
+  getAllowedPages,
 } from './utils/permissions'
-import { filterEvents, splitEventsByDate, validateEventForm } from './utils/eventUtils'
+import { sortEvents, filterEvents, validateEventForm } from './utils/eventUtils'
+import { isStrongEnoughPassword, isValidEmail, isValidPhone, normalizePhone } from './utils/validation'
 import PublicLayout from './layouts/PublicLayout'
 import UserLayout from './layouts/UserLayout'
 import AdminLayout from './layouts/AdminLayout'
@@ -32,26 +38,23 @@ import UserHomePage from './pages/UserHomePage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import ProfilePage from './pages/ProfilePage'
 import MyEventsPage from './pages/MyEventsPage'
-import AdminUsersPanel from './components/AdminUsersPanel'
-
-const EMPTY_REGISTER = { name: '', phone: '', password: '', email: '', village: '', profileImage: '', otpCode: '' }
-const EMPTY_LOGIN = { phone: '', password: '' }
-const EMPTY_PROFILE = { name: '', profileImage: '' }
-const EMPTY_EVENT_FORM = { groom: '', bride: '', hall: '', date: '' }
-const EMPTY_OTP_META = { sent: false, verified: false, code: '', debugCode: '' }
+import UserManagementPage from './pages/UserManagementPage'
 
 function App() {
   const [usersData, setUsersData] = useState(loadUsers())
   const [eventsData, setEventsData] = useState(loadEvents())
   const [currentUserId, setCurrentUserId] = useState(loadValue(STORAGE_KEYS.currentUserId, null))
-  const [currentPage, setCurrentPage] = useState(loadValue(STORAGE_KEYS.currentPage, 'dashboard'))
   const [selectedVillage, setSelectedVillage] = useState(loadValue(STORAGE_KEYS.selectedVillage, ''))
   const [search, setSearch] = useState(loadValue(STORAGE_KEYS.searchText, ''))
+  const [currentPage, setCurrentPage] = useState(loadValue(STORAGE_KEYS.currentPage, 'dashboard'))
 
-  const [registerData, setRegisterData] = useState(EMPTY_REGISTER)
-  const [loginData, setLoginData] = useState(EMPTY_LOGIN)
-  const [otpPhone, setOtpPhone] = useState('')
-  const [otpMeta, setOtpMeta] = useState(EMPTY_OTP_META)
+  const currentUser = useMemo(() => usersData.find((user) => user.id === currentUserId) || null, [usersData, currentUserId])
+  const usersById = useMemo(() => Object.fromEntries(usersData.map((user) => [user.id, user])), [usersData])
+
+  const [registerData, setRegisterData] = useState({ name: '', phone: '', email: '', password: '', village: '', profileImage: '', otpCode: '' })
+  const [loginData, setLoginData] = useState({ phone: '', password: '' })
+  const [otpLoginData, setOtpLoginData] = useState({ phone: '', code: '' })
+  const [forgotPasswordData, setForgotPasswordData] = useState({ email: '', phone: '', newPassword: '' })
 
   const [registerError, setRegisterError] = useState('')
   const [registerSuccess, setRegisterSuccess] = useState('')
@@ -59,17 +62,20 @@ function App() {
   const [loginSuccess, setLoginSuccess] = useState('')
   const [otpError, setOtpError] = useState('')
   const [otpSuccess, setOtpSuccess] = useState('')
+  const [forgotPasswordError, setForgotPasswordError] = useState('')
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState('')
+  const [registerOtpSentCode, setRegisterOtpSentCode] = useState('')
+  const [loginOtpSentCode, setLoginOtpSentCode] = useState('')
+  const [registerPhoneVerified, setRegisterPhoneVerified] = useState(false)
+  const [verifiedRegisterPhone, setVerifiedRegisterPhone] = useState('')
 
-  const [profileData, setProfileData] = useState(EMPTY_PROFILE)
+  const [profileData, setProfileData] = useState({ name: '', email: '', profileImage: '' })
   const [editingEventId, setEditingEventId] = useState(null)
-  const [formData, setFormData] = useState(EMPTY_EVENT_FORM)
+  const [formData, setFormData] = useState({ groom: '', bride: '', hall: '', date: '' })
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-
-  const currentUser = useMemo(
-    () => usersData.find((user) => String(user.id) === String(currentUserId)) || null,
-    [usersData, currentUserId],
-  )
+  const [roleError, setRoleError] = useState('')
+  const [roleSuccess, setRoleSuccess] = useState('')
 
   useEffect(() => { saveUsers(usersData) }, [usersData])
   useEffect(() => { saveEvents(eventsData) }, [eventsData])
@@ -80,30 +86,35 @@ function App() {
 
   useEffect(() => {
     if (!currentUser) {
-      setProfileData(EMPTY_PROFILE)
+      setProfileData({ name: '', email: '', profileImage: '' })
       return
     }
 
     setProfileData({
       name: currentUser.name || '',
+      email: currentUser.email || '',
       profileImage: currentUser.profileImage || '',
     })
   }, [currentUser])
 
   useEffect(() => {
-    if (!currentUserId) return
-    const loggedUser = usersData.find((user) => String(user.id) === String(currentUserId))
-    if (loggedUser?.village) {
-      setSelectedVillage(loggedUser.village)
-    }
+    if (!currentUser?.village) return
+    setSelectedVillage((previousVillage) => previousVillage || currentUser.village)
   }, [currentUserId])
 
-  function resetEventForm() {
-    setFormData(EMPTY_EVENT_FORM)
+  useEffect(() => {
+    const allowedPages = getAllowedPages(currentUser)
+    if (!allowedPages.includes(currentPage)) {
+      setCurrentPage(currentUser?.role === 'admin' ? 'dashboard' : currentUser ? 'dashboard' : 'auth')
+    }
+  }, [currentPage, currentUser])
+
+  function resetForm() {
+    setFormData({ groom: '', bride: '', hall: '', date: '' })
     setEditingEventId(null)
   }
 
-  function clearDashboardMessages() {
+  function clearMessages() {
     setErrorMessage('')
     setSuccessMessage('')
   }
@@ -115,107 +126,107 @@ function App() {
     setLoginSuccess('')
     setOtpError('')
     setOtpSuccess('')
-  }
-
-  function resetRegisterState() {
-    setRegisterData(EMPTY_REGISTER)
-    setOtpMeta(EMPTY_OTP_META)
+    setForgotPasswordError('')
+    setForgotPasswordSuccess('')
   }
 
   function handleRegisterChange(event) {
     const { name, value } = event.target
-    setRegisterData((prev) => {
-      const next = { ...prev, [name]: value }
-      if (name === 'phone') {
-        return { ...next, otpCode: '' }
-      }
-      return next
-    })
-
-    if (event.target.name === 'phone' && otpMeta.verified) {
-      setOtpMeta(EMPTY_OTP_META)
+    setRegisterData((prev) => ({ ...prev, [name]: value }))
+    if (name === 'phone' && value !== verifiedRegisterPhone) {
+      setRegisterPhoneVerified(false)
     }
+  }
+
+  function resizeImage(file, callback) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const image = new Image()
+      image.onload = () => {
+        const canvas = document.createElement('canvas')
+        const size = 160
+        canvas.width = size
+        canvas.height = size
+        const context = canvas.getContext('2d')
+        context.fillStyle = '#f3f4f6'
+        context.fillRect(0, 0, size, size)
+
+        const scale = Math.max(size / image.width, size / image.height)
+        const width = image.width * scale
+        const height = image.height * scale
+        const x = (size - width) / 2
+        const y = (size - height) / 2
+        context.drawImage(image, x, y, width, height)
+        callback(canvas.toDataURL('image/jpeg', 0.72))
+      }
+      image.src = reader.result
+    }
+    reader.readAsDataURL(file)
   }
 
   function handleRegisterImageChange(event) {
     const file = event.target.files?.[0]
     if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      setRegisterData((prev) => ({ ...prev, profileImage: reader.result }))
-    }
-    reader.readAsDataURL(file)
+    resizeImage(file, (dataUrl) => {
+      setRegisterData((prev) => ({ ...prev, profileImage: dataUrl }))
+    })
   }
 
   function handleSendRegisterOtp() {
-    clearAuthMessages()
-    const normalizedPhone = normalizePhone(registerData.phone)
-
-    if (!/^05\d{8}$/.test(normalizedPhone)) {
+    setRegisterError('')
+    if (!isValidPhone(registerData.phone)) {
       setRegisterError('رقم الهاتف غير صحيح')
       return
     }
-
-    const generatedCode = '123456'
-    setOtpMeta({ sent: true, verified: false, code: generatedCode, debugCode: generatedCode })
-    setRegisterSuccess('تم إرسال OTP محليًا. أدخل الرمز ثم اضغط تأكيد OTP')
+    const result = sendOtpCode(registerData.phone, 'register')
+    setRegisterOtpSentCode(result.code)
+    setRegisterSuccess('تم إرسال رمز التحقق')
   }
 
   function handleVerifyRegisterOtp() {
-    clearAuthMessages()
-    if (!otpMeta.sent) {
-      setRegisterError('يجب إرسال OTP أولًا')
+    setRegisterError('')
+    const result = verifyOtpCode(registerData.phone, registerData.otpCode, 'register')
+    if (!result.success) {
+      setRegisterError(result.message)
       return
     }
-
-    if (String(registerData.otpCode).trim() !== String(otpMeta.code)) {
-      setRegisterError('رمز OTP غير صحيح')
-      return
-    }
-
-    setOtpMeta((prev) => ({ ...prev, verified: true, debugCode: '' }))
-    setRegisterSuccess('تم التحقق من رقم الهاتف بنجاح')
+    setRegisterPhoneVerified(true)
+    setVerifiedRegisterPhone(normalizePhone(registerData.phone))
+    setRegisterSuccess(result.message)
   }
 
   function handleRegisterSubmit() {
     setRegisterError('')
     setRegisterSuccess('')
-
-    if (!registerData.name.trim() || !registerData.phone.trim() || !registerData.password.trim() || !registerData.village || !registerData.email.trim()) {
+    if (!registerData.name.trim() || !registerData.phone.trim() || !registerData.password.trim() || !registerData.email.trim() || !registerData.village) {
       setRegisterError('يرجى تعبئة جميع حقول التسجيل المطلوبة')
       return
     }
-
-    if (!/^05\d{8}$/.test(normalizePhone(registerData.phone))) {
+    if (!isValidPhone(registerData.phone)) {
       setRegisterError('رقم الهاتف غير صحيح')
       return
     }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email.trim())) {
+    if (!isValidEmail(registerData.email)) {
       setRegisterError('البريد الإلكتروني غير صحيح')
       return
     }
-
-    if (registerData.password.trim().length < 6) {
+    if (!isStrongEnoughPassword(registerData.password)) {
       setRegisterError('كلمة المرور ضعيفة (6 أحرف على الأقل)')
       return
     }
-
-    if (!otpMeta.verified) {
-      setRegisterError('يجب تأكيد رقم الهاتف عبر OTP قبل التسجيل')
-      return
-    }
-
-    const result = registerUser(usersData, registerData)
+    const normalizedPhone = normalizePhone(registerData.phone)
+    const result = registerUser(usersData, { ...registerData, phoneVerified: registerPhoneVerified && verifiedRegisterPhone === normalizedPhone })
     if (!result.success) {
       setRegisterError(result.message)
       return
     }
-
+    saveUsers(result.users)
     setUsersData(result.users)
-    setRegisterSuccess('تم إنشاء الحساب بنجاح — يمكنك تسجيل الدخول الآن')
-    resetRegisterState()
+    setRegisterSuccess('تم إنشاء الحساب بنجاح ويمكنك الآن تسجيل الدخول')
+    setRegisterData({ name: '', phone: '', email: '', password: '', village: '', profileImage: '', otpCode: '' })
+    setRegisterPhoneVerified(false)
+    setVerifiedRegisterPhone('')
+    setRegisterOtpSentCode('')
   }
 
   function handleLoginChange(event) {
@@ -226,31 +237,68 @@ function App() {
   function handleLoginSubmit() {
     setLoginError('')
     setLoginSuccess('')
-    const result = loginWithPassword(usersData, loginData.phone, loginData.password)
+    const result = loginWithPassword(loadUsers(), loginData.phone, loginData.password)
     if (!result.success) {
       setLoginError(result.message)
       return
     }
-
     setCurrentUserId(result.user.id)
-    setCurrentPage('dashboard')
     setLoginSuccess('تم تسجيل الدخول بنجاح')
-    setLoginData(EMPTY_LOGIN)
+    setLoginData({ phone: '', password: '' })
   }
 
-  function handleOtpSubmit() {
+  function handleOtpLoginChange(event) {
+    const { name, value } = event.target
+    setOtpLoginData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  function handleSendLoginOtp() {
+    setOtpError('')
+    const phone = otpLoginData.phone.trim()
+    if (!isValidPhone(phone)) {
+      setOtpError('رقم الهاتف غير صحيح')
+      return
+    }
+    const result = sendOtpCode(phone, 'login')
+    setLoginOtpSentCode(result.code)
+    setOtpSuccess('تم إرسال رمز OTP')
+  }
+
+  function handleOtpLoginSubmit() {
     setOtpError('')
     setOtpSuccess('')
-    const result = loginWithOtp(usersData, otpPhone)
+    const verifyResult = verifyOtpCode(otpLoginData.phone, otpLoginData.code, 'login')
+    if (!verifyResult.success) {
+      setOtpError(verifyResult.message)
+      return
+    }
+    const result = loginWithOtp(loadUsers(), otpLoginData.phone)
     if (!result.success) {
       setOtpError(result.message)
       return
     }
-
     setCurrentUserId(result.user.id)
-    setCurrentPage('dashboard')
     setOtpSuccess(result.message)
-    setOtpPhone('')
+    setOtpLoginData({ phone: '', code: '' })
+    setLoginOtpSentCode('')
+  }
+
+  function handleForgotPasswordChange(event) {
+    const { name, value } = event.target
+    setForgotPasswordData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  function handleForgotPasswordSubmit() {
+    setForgotPasswordError('')
+    setForgotPasswordSuccess('')
+    const result = resetPasswordWithEmail(usersData, forgotPasswordData)
+    if (!result.success) {
+      setForgotPasswordError(result.message)
+      return
+    }
+    setUsersData(result.users)
+    setForgotPasswordSuccess(result.message)
+    setForgotPasswordData({ email: '', phone: '', newPassword: '' })
   }
 
   function handleProfileChange(event) {
@@ -261,42 +309,57 @@ function App() {
   function handleProfileImageChange(event) {
     const file = event.target.files?.[0]
     if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      setProfileData((prev) => ({
-        ...prev,
-        profileImage: reader.result,
-      }))
-    }
-
-    reader.readAsDataURL(file)
+    resizeImage(file, (dataUrl) => {
+      setProfileData((prev) => ({ ...prev, profileImage: dataUrl }))
+    })
   }
 
   function handleProfileSave() {
     if (!currentUser) return
-    const updatedUsers = updateUserProfile(usersData, currentUser.id, profileData)
-    setUsersData(updatedUsers)
+    const result = updateUserProfile(usersData, currentUser.id, profileData)
+    if (!result.success) {
+      setErrorMessage(result.message)
+      setSuccessMessage('')
+      return
+    }
+    setUsersData(result.users)
     setSuccessMessage('تم حفظ بيانات الملف الشخصي')
     setErrorMessage('')
+  }
+
+  function handleChangeUserVillage(userId, village) {
+    setRoleError('')
+    setRoleSuccess('')
+    if (!canManageUsers(currentUser)) {
+      setRoleError('ليس لديك صلاحية تعديل المستخدمين')
+      return
+    }
+    const result = updateUserVillage(usersData, userId, village)
+    if (!result.success) {
+      setRoleError(result.message)
+      return
+    }
+    setUsersData(result.users)
+    setRoleSuccess('تم تحديث القرية بنجاح')
   }
 
   function handleLogout() {
     setCurrentUserId(null)
     setSelectedVillage('')
+    setProfileData({ name: '', email: '', profileImage: '' })
     setSearch('')
-    setCurrentPage('dashboard')
-    setProfileData(EMPTY_PROFILE)
-    resetEventForm()
-    clearDashboardMessages()
+    setCurrentPage('auth')
+    resetForm()
+    clearMessages()
     clearAuthMessages()
   }
 
   function handleVillageChange(event) {
     const value = event.target.value
     setSelectedVillage(value)
-    clearDashboardMessages()
-    resetEventForm()
+    setSearch('')
+    clearMessages()
+    resetForm()
   }
 
   function handleSearchChange(event) {
@@ -320,15 +383,8 @@ function App() {
       setSuccessMessage('')
       return
     }
-
-    setFormData({
-      groom: eventItem.groom,
-      bride: eventItem.bride,
-      hall: eventItem.hall,
-      date: eventItem.date,
-    })
+    setFormData({ groom: eventItem.groom, bride: eventItem.bride, hall: eventItem.hall, date: eventItem.date })
     setEditingEventId(eventItem.id)
-    setSelectedVillage(eventItem.village)
     setErrorMessage('')
     setSuccessMessage('')
   }
@@ -341,19 +397,15 @@ function App() {
       setSuccessMessage('')
       return
     }
-
-    const confirmDelete = window.confirm('هل أنت متأكد من حذف هذا الحدث؟')
-    if (!confirmDelete) return
+    if (!window.confirm('هل أنت متأكد من حذف هذا الحدث؟')) return
 
     const updatedEvents = eventsData.filter((item) => item.id !== eventId)
     setEventsData(updatedEvents)
-    setUsersData((prevUsers) => prevUsers.map((user) => ({ ...user, myEvents: user.myEvents.filter((id) => id !== eventId) })))
+    const updatedUsers = usersData.map((user) => ({ ...user, myEvents: user.myEvents.filter((id) => id !== eventId) }))
+    setUsersData(updatedUsers)
     setSuccessMessage('تم حذف الحدث بنجاح')
     setErrorMessage('')
-
-    if (editingEventId === eventId) {
-      resetEventForm()
-    }
+    if (editingEventId === eventId) resetForm()
   }
 
   function handleApproveEvent(eventId) {
@@ -364,8 +416,8 @@ function App() {
       setSuccessMessage('')
       return
     }
-
-    setEventsData((prev) => prev.map((item) => (item.id === eventId ? { ...item, status: 'approved' } : item)))
+    const updatedEvents = eventsData.map((item) => (item.id === eventId ? { ...item, status: 'approved' } : item))
+    setEventsData(updatedEvents)
     setSuccessMessage('تمت الموافقة على الحدث')
     setErrorMessage('')
   }
@@ -378,20 +430,18 @@ function App() {
       setSuccessMessage('')
       return
     }
-
-    setEventsData((prev) => prev.map((item) => (item.id === eventId ? { ...item, status: 'rejected' } : item)))
+    const updatedEvents = eventsData.map((item) => (item.id === eventId ? { ...item, status: 'rejected' } : item))
+    setEventsData(updatedEvents)
     setSuccessMessage('تم رفض الحدث')
     setErrorMessage('')
   }
 
   function handleSubmitEvent() {
-    clearDashboardMessages()
-
+    clearMessages()
     if (!canAddEvent(currentUser, selectedVillage)) {
       setErrorMessage('ليس لديك صلاحية إضافة حدث في هذه القرية')
       return
     }
-
     const validationMessage = validateEventForm(formData, selectedVillage, currentUser)
     if (validationMessage) {
       setErrorMessage(validationMessage)
@@ -414,68 +464,96 @@ function App() {
         setErrorMessage('لم يتم العثور على الحدث المطلوب تعديله')
         return
       }
-
       if (!canEditEvent(currentUser, originalEvent)) {
         setErrorMessage('ليس لديك صلاحية تعديل هذا الحدث')
         return
       }
-
-      setEventsData((prev) => prev.map((item) => (item.id === editingEventId ? { ...item, ...payload } : item)))
+      const updatedEvents = eventsData.map((item) => (item.id === editingEventId ? { ...item, ...payload } : item))
+      setEventsData(updatedEvents)
       setSuccessMessage('تم تحديث الحدث بنجاح')
-      resetEventForm()
+      resetForm()
       return
     }
 
     const status = getNewEventStatus(currentUser, selectedVillage)
     const newEvent = Event.create({ ...payload, createdByUserId: currentUser.id, status }).toJSON()
     setEventsData((prev) => [...prev, newEvent])
-    setUsersData((prevUsers) =>
-      prevUsers.map((user) =>
-        user.id === currentUser.id
-          ? { ...user, myEvents: user.myEvents.includes(newEvent.id) ? user.myEvents : [...user.myEvents, newEvent.id] }
-          : user,
-      ),
+    const updatedUsers = usersData.map((user) =>
+      user.id === currentUser.id ? { ...user, myEvents: Array.from(new Set([...user.myEvents, newEvent.id])) } : user
     )
+    setUsersData(updatedUsers)
     setSuccessMessage(status === 'pending' ? 'تم إرسال الحدث بانتظار الموافقة' : 'تمت إضافة الحدث بنجاح')
-    resetEventForm()
+    resetForm()
   }
 
-  function handleRoleChange(userId, role) {
-    if (currentUser?.role !== 'admin') return
-    setUsersData((prevUsers) => updateUserRole(prevUsers, userId, role))
+  function handleToggleSaveEvent(eventId) {
+    if (!currentUser) return
+    const updatedUsers = usersData.map((user) => {
+      if (user.id !== currentUser.id) return user
+      const exists = user.myEvents.includes(eventId)
+      return {
+        ...user,
+        myEvents: exists ? user.myEvents.filter((id) => id !== eventId) : [...user.myEvents, eventId],
+      }
+    })
+    setUsersData(updatedUsers)
   }
 
-  const managementVisibleEvents = useMemo(() => eventsData.filter((eventItem) => canViewEvent(currentUser, eventItem)), [eventsData, currentUser])
+  function handleChangeUserRole(userId, newRole) {
+    setRoleError('')
+    setRoleSuccess('')
+    if (!canManageUsers(currentUser)) {
+      setRoleError('ليس لديك صلاحية تعديل المستخدمين')
+      return
+    }
+    const result = updateUserRole(usersData, userId, newRole)
+    if (!result.success) {
+      setRoleError(result.message)
+      return
+    }
+    setUsersData(result.users)
+    setRoleSuccess('تم تحديث الدور بنجاح')
+  }
 
-  const allVisibleEvents = useMemo(() => {
+  const relevantEventsByVillage = useMemo(() => {
     if (!selectedVillage) return []
-    return managementVisibleEvents.filter((eventItem) => eventItem.village === selectedVillage)
-  }, [managementVisibleEvents, selectedVillage])
+    return eventsData.filter((eventItem) => eventItem.village === selectedVillage && canViewEvent(currentUser, eventItem))
+  }, [eventsData, selectedVillage, currentUser])
 
-  const filteredVisibleEvents = useMemo(() => filterEvents(allVisibleEvents, search), [allVisibleEvents, search])
-  const { upcoming: upcomingEvents, past: pastEvents } = useMemo(() => splitEventsByDate(filteredVisibleEvents), [filteredVisibleEvents])
+  const filteredEvents = useMemo(() => filterEvents(relevantEventsByVillage, search), [relevantEventsByVillage, search])
+  const sortedEvents = useMemo(() => sortEvents(filteredEvents), [filteredEvents])
 
-  const pendingEvents = useMemo(() => {
-    const pendingSource = managementVisibleEvents.filter((eventItem) => eventItem.status === 'pending')
-    return splitEventsByDate(filterEvents(pendingSource, search)).upcoming.concat(splitEventsByDate(filterEvents(pendingSource, search)).past)
-  }, [managementVisibleEvents, search])
+  const pendingBase = useMemo(() => {
+    let base = eventsData.filter((eventItem) => eventItem.status === 'pending' && canViewEvent(currentUser, eventItem))
+    if (selectedVillage) {
+      base = base.filter((eventItem) => eventItem.village === selectedVillage)
+    }
+    return base
+  }, [eventsData, currentUser, selectedVillage])
+
+  const pendingEvents = useMemo(() => sortEvents(filterEvents(pendingBase, search)), [pendingBase, search])
+
+  const dashboardCountSource = useMemo(() => {
+    let base = eventsData.filter((eventItem) => canViewEvent(currentUser, eventItem))
+    if (selectedVillage) {
+      base = base.filter((eventItem) => eventItem.village === selectedVillage)
+    }
+    return base
+  }, [eventsData, currentUser, selectedVillage])
+
+  const dashboardCounts = useMemo(() => ({
+    total: dashboardCountSource.length,
+    approved: dashboardCountSource.filter((item) => item.status === 'approved').length,
+    pending: dashboardCountSource.filter((item) => item.status === 'pending').length,
+    rejected: dashboardCountSource.filter((item) => item.status === 'rejected').length,
+  }), [dashboardCountSource])
 
   const myEvents = useMemo(() => {
     if (!currentUser) return []
-    const source = eventsData.filter((eventItem) => currentUser.myEvents.includes(eventItem.id))
-    return splitEventsByDate(source).upcoming.concat(splitEventsByDate(source).past)
+    return sortEvents(eventsData.filter((eventItem) => currentUser.myEvents.includes(eventItem.id)))
   }, [eventsData, currentUser])
 
-  const stats = useMemo(() => {
-    const source = managementVisibleEvents
-    return {
-      total: source.length,
-      approved: source.filter((item) => item.status === 'approved').length,
-      pending: source.filter((item) => item.status === 'pending').length,
-      rejected: source.filter((item) => item.status === 'rejected').length,
-    }
-  }, [managementVisibleEvents])
-
+  const savedEventIds = currentUser?.myEvents || []
   const userCanAddInSelectedVillage = canAddEvent(currentUser, selectedVillage)
 
   if (!currentUser) {
@@ -485,24 +563,30 @@ function App() {
           registerData={registerData}
           onRegisterChange={handleRegisterChange}
           onRegisterImageChange={handleRegisterImageChange}
-          onRegisterSubmit={handleRegisterSubmit}
-          onRegisterReset={resetRegisterState}
           onSendRegisterOtp={handleSendRegisterOtp}
           onVerifyRegisterOtp={handleVerifyRegisterOtp}
-          onRegisterOtpCodeChange={handleRegisterChange}
+          onRegisterSubmit={handleRegisterSubmit}
           registerError={registerError}
           registerSuccess={registerSuccess}
-          registerOtpMeta={otpMeta}
+          registerOtpSentCode={registerOtpSentCode}
+          registerPhoneVerified={registerPhoneVerified}
           loginData={loginData}
           onLoginChange={handleLoginChange}
           onLoginSubmit={handleLoginSubmit}
           loginError={loginError}
           loginSuccess={loginSuccess}
-          otpPhone={otpPhone}
-          onOtpPhoneChange={(e) => setOtpPhone(e.target.value)}
-          onOtpSubmit={handleOtpSubmit}
+          otpLoginData={otpLoginData}
+          onOtpLoginChange={handleOtpLoginChange}
+          onSendLoginOtp={handleSendLoginOtp}
+          onOtpLoginSubmit={handleOtpLoginSubmit}
           otpError={otpError}
           otpSuccess={otpSuccess}
+          loginOtpSentCode={loginOtpSentCode}
+          forgotPasswordData={forgotPasswordData}
+          onForgotPasswordChange={handleForgotPasswordChange}
+          onForgotPasswordSubmit={handleForgotPasswordSubmit}
+          forgotPasswordError={forgotPasswordError}
+          forgotPasswordSuccess={forgotPasswordSuccess}
         />
       </PublicLayout>
     )
@@ -510,13 +594,12 @@ function App() {
 
   if (isManagementUser(currentUser)) {
     let adminContent = null
-
     if (currentPage === 'profile') {
       adminContent = <ProfilePage currentUser={currentUser} profileData={profileData} onProfileChange={handleProfileChange} onProfileImageChange={handleProfileImageChange} onProfileSave={handleProfileSave} />
     } else if (currentPage === 'my-events') {
-      adminContent = <MyEventsPage currentUser={currentUser} myEvents={myEvents} onEditEvent={handleEditEvent} onDeleteEvent={handleDeleteEvent} onApproveEvent={handleApproveEvent} onRejectEvent={handleRejectEvent} />
-    } else if (currentPage === 'users' && currentUser.role === 'admin') {
-      adminContent = <AdminUsersPanel users={usersData} currentUser={currentUser} onRoleChange={handleRoleChange} />
+      adminContent = <MyEventsPage currentUser={currentUser} myEvents={myEvents} usersById={usersById} onEditEvent={handleEditEvent} onDeleteEvent={handleDeleteEvent} onApproveEvent={handleApproveEvent} onRejectEvent={handleRejectEvent} onToggleSaveEvent={handleToggleSaveEvent} savedEventIds={savedEventIds} />
+    } else if (currentPage === 'users' && canManageUsers(currentUser)) {
+      adminContent = <UserManagementPage users={usersData} currentUser={currentUser} onChangeUserRole={handleChangeUserRole} onChangeUserVillage={handleChangeUserVillage} message={roleSuccess} errorMessage={roleError} />
     } else {
       adminContent = (
         <AdminDashboardPage
@@ -528,58 +611,41 @@ function App() {
           formData={formData}
           onFormChange={handleFormChange}
           onSubmitEvent={handleSubmitEvent}
-          onCancelEdit={resetEventForm}
+          onCancelEdit={resetForm}
           errorMessage={errorMessage}
           successMessage={successMessage}
           editingEventId={editingEventId}
           canAddEvent={userCanAddInSelectedVillage}
-          upcomingEvents={upcomingEvents}
-          pastEvents={pastEvents}
+          dashboardCounts={dashboardCounts}
+          events={sortedEvents}
           pendingEvents={pendingEvents}
           currentUser={currentUser}
+          usersById={usersById}
           onEditEvent={handleEditEvent}
           onDeleteEvent={handleDeleteEvent}
           onApproveEvent={handleApproveEvent}
           onRejectEvent={handleRejectEvent}
+          onToggleSaveEvent={handleToggleSaveEvent}
+          savedEventIds={savedEventIds}
           currentPage={currentPage}
-          stats={stats}
         />
       )
     }
 
-    return <AdminLayout currentUser={currentUser} currentPage={currentPage} onChangePage={setCurrentPage} onLogout={handleLogout}>{adminContent}</AdminLayout>
+    return (
+      <AdminLayout currentUser={currentUser} currentPage={currentPage} onChangePage={setCurrentPage} onLogout={handleLogout}>
+        {adminContent}
+      </AdminLayout>
+    )
   }
 
   let userContent = null
   if (currentPage === 'profile') {
     userContent = <ProfilePage currentUser={currentUser} profileData={profileData} onProfileChange={handleProfileChange} onProfileImageChange={handleProfileImageChange} onProfileSave={handleProfileSave} />
   } else if (currentPage === 'my-events') {
-    userContent = <MyEventsPage currentUser={currentUser} myEvents={myEvents} onEditEvent={handleEditEvent} onDeleteEvent={handleDeleteEvent} onApproveEvent={handleApproveEvent} onRejectEvent={handleRejectEvent} />
+    userContent = <MyEventsPage currentUser={currentUser} myEvents={myEvents} usersById={usersById} onEditEvent={handleEditEvent} onDeleteEvent={handleDeleteEvent} onApproveEvent={handleApproveEvent} onRejectEvent={handleRejectEvent} onToggleSaveEvent={handleToggleSaveEvent} savedEventIds={savedEventIds} />
   } else {
-    userContent = (
-      <UserHomePage
-        currentUser={currentUser}
-        selectedVillage={selectedVillage}
-        onVillageChange={handleVillageChange}
-        search={search}
-        onSearchChange={handleSearchChange}
-        onClearSearch={handleClearSearch}
-        formData={formData}
-        onFormChange={handleFormChange}
-        onSubmitEvent={handleSubmitEvent}
-        onCancelEdit={resetEventForm}
-        errorMessage={errorMessage}
-        successMessage={successMessage}
-        editingEventId={editingEventId}
-        canAddEvent={userCanAddInSelectedVillage}
-        upcomingEvents={upcomingEvents}
-        pastEvents={pastEvents}
-        onEditEvent={handleEditEvent}
-        onDeleteEvent={handleDeleteEvent}
-        onApproveEvent={handleApproveEvent}
-        onRejectEvent={handleRejectEvent}
-      />
-    )
+    userContent = <UserHomePage currentUser={currentUser} selectedVillage={selectedVillage} onVillageChange={handleVillageChange} search={search} onSearchChange={handleSearchChange} onClearSearch={handleClearSearch} formData={formData} onFormChange={handleFormChange} onSubmitEvent={handleSubmitEvent} onCancelEdit={resetForm} errorMessage={errorMessage} successMessage={successMessage} editingEventId={editingEventId} canAddEvent={userCanAddInSelectedVillage} events={sortedEvents} usersById={usersById} onEditEvent={handleEditEvent} onDeleteEvent={handleDeleteEvent} onApproveEvent={handleApproveEvent} onRejectEvent={handleRejectEvent} onToggleSaveEvent={handleToggleSaveEvent} savedEventIds={savedEventIds} />
   }
 
   return (

@@ -1,19 +1,27 @@
+import Avatar from '../components/Avatar'
+import { canManageUsers, getRoleLabel } from '../utils/permissions'
+
 function AdminLayout({ currentUser, currentPage, onChangePage, onLogout, children }) {
-  const navItems = [{ key:'dashboard', label:'لوحة التحكم' }, { key:'pending', label:'الأعراس بإنتظار الموافقة' }, { key:'my-events', label:'أعراسي' }, { key:'profile', label:'الإعدادات' }]
-  if (currentUser?.role === 'admin') {
-    navItems.splice(3, 0, { key: 'users', label: 'إدارة المستخدمين' })
-  }
+  const navItems = [
+    { key: 'dashboard', label: 'لوحة التحكم' },
+    { key: 'pending', label: 'الأعراس بانتظار الموافقة' },
+    ...(canManageUsers(currentUser) ? [{ key: 'users', label: 'إدارة المستخدمين' }] : []),
+    { key: 'my-events', label: 'أعراسي' },
+    { key: 'profile', label: 'الإعدادات' },
+  ]
 
   return (
     <div className="layout">
       <div className="topbar">
         <div><div className="topbar-title">DEWEDDING</div><div className="topbar-subtitle">واجهة الإدارة</div></div>
         <div className="topbar-actions">
-          <div className="user-chip">
-            {currentUser.profileImage ? <img src={currentUser.profileImage} alt={currentUser.name} className="user-chip-avatar" /> : <div className="user-chip-avatar placeholder-avatar">{currentUser.name?.[0] || 'A'}</div>}
-            <span>{currentUser.name}</span>
+          <div className="topbar-user">
+            <Avatar name={currentUser.name} image={currentUser.profileImage} size={40} />
+            <div>
+              <div className="topbar-user-name">{currentUser.name}</div>
+              <div className="topbar-user-role">{getRoleLabel(currentUser.role)}</div>
+            </div>
           </div>
-          <span className="badge-role">{currentUser.role}</span>
           <button className="secondary-btn" onClick={onLogout}>تسجيل الخروج</button>
         </div>
       </div>
