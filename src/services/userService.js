@@ -18,7 +18,10 @@ function normalizeUserPayload(user = {}) {
     phone: normalizePhone(user.phone),
     email: normalizeEmail(user.email),
     village: normalizeText(user.village),
+     // חשוב מאוד — לשמור את הערך
+    phoneChangeUsed: user.phoneChangeUsed ?? false,
   }).toJSON()
+  
 }
 
 export function loadUsers() {

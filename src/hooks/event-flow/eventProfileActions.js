@@ -8,7 +8,7 @@ import {
   updateUserProfileImage,
 } from '../../services/userService'
 import { prepareProfileImage } from '../../utils/imageHelpers'
-
+import { isValidPhone } from '../../utils/validation'
 // هذه الدالة تجمع كل ما يخص الملف الشخصي والمستخدمين و OTP.
 export function createEventProfileActions({
   store,
@@ -104,26 +104,45 @@ export function createEventProfileActions({
     patchUsers(result.users)
     writeNotice('', 'تم حذف صورة المستخدم')
   }
+const sendProfilePhoneOtp = () => {
+  const currentPhone = (store.currentUser?.phone || '').trim()
+  const phone = (profileForm?.pendingPhone || '').trim()
 
-  const sendProfilePhoneOtp = () => {
-const phone = (profileForm?.pendingPhone || '').trim()
-
-    if (!phone) {
-      writeNotice('رقم الهاتف مطلوب')
-      return
-    }
-
-    const result = sendOtpCode(phone, 'profile-phone-change')
-
-    setProfileForm((prev) => ({
-      ...prev,
-      phoneOtpSent: true,
-      phoneVerified: false,
-      phoneOtpCodePreview: result.code,
-    }))
-
-    writeNotice('', 'تم إرسال رمز التحقق')
+  if (!phone) {
+    writeNotice('رقم الهاتف مطلوب')
+    return
   }
+
+  if (!isValidPhone(phone)) {
+    writeNotice('رقم الهاتف غير صحيح')
+    return
+  }
+
+  if (phone === currentPhone) {
+    writeNotice('رقم الهاتف الجديد مطابق للرقم الحالي')
+    return
+  }
+
+  const phoneTaken = store.users.some(
+    (user) => user.id !== store.currentUser.id && (user.phone || '').trim() === phone
+  )
+
+  if (phoneTaken) {
+    writeNotice('رقم الهاتف مستخدم من قبل مستخدم آخر')
+    return
+  }
+
+  const result = sendOtpCode(phone, 'profile-phone-change')
+
+  setProfileForm((prev) => ({
+    ...prev,
+    phoneOtpSent: true,
+    phoneVerified: false,
+    phoneOtpCodePreview: result.code,
+  }))
+
+  writeNotice('', 'تم إرسال رمز التحقق')
+}
 
 const verifyProfilePhoneOtp = () => {
   const currentPhone = (store.currentUser?.phone || '').trim()
@@ -147,19 +166,17 @@ const verifyProfilePhoneOtp = () => {
     return
   }
 
-  const updateResult = updateUserProfile(store.users, store.currentUser.id, {
-    name: store.currentUser?.name || '',
-    email: store.currentUser?.email || '',
-    phone: pendingPhone,
-    profileImage: store.currentUser?.profileImage || '',
-  })
+  const updatedUsers = store.users.map((user) =>
+    user.id === store.currentUser.id
+      ? {
+          ...user,
+          phone: pendingPhone,
+          phoneChangeUsed: true,
+        }
+      : user
+  )
 
-  if (!updateResult.success) {
-    writeNotice(updateResult.message)
-    return
-  }
-
-  patchUsers(updateResult.users)
+  patchUsers(updatedUsers)
 
   setProfileForm((prev) => ({
     ...prev,

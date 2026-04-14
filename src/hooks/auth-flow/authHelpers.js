@@ -2,8 +2,7 @@ import { villages } from '../../data/seedData'
 import { User } from '../../models/User'
 import { DEFAULT_USER_AVATAR } from '../../config/profileImages'
 import { findUserByEmail, findUserByPhone, registerUser, sendOtpCode, verifyOtpCode } from '../../services/userService'
-import { isValidEmail, isValidPhone } from '../../utils/validation'
-
+import { isValidEmail } from '../../utils/validation'
 // هذه المجموعة تحتوي على دوال مساعدة نقية لمسار التحقق.
 export function finishAuth(store, clear, resetEmailForm, resetPhoneForm, user, emailDraft, phoneDraft) {
   store.setCurrentUserId(user.id)
@@ -42,13 +41,20 @@ export function handleEmailContinuation({ mode, emailForm, phoneForm, setMode, s
       return
     }
 
-    const result = registerUser(store.users, {
-      ...phoneForm,
-      email: phoneForm.email || `phone.${Date.now()}@dewedding.local`,
-      password: '',
-      profileImage: DEFAULT_USER_AVATAR,
-      phoneVerified: true,
-    })
+    if (!emailForm.village.trim()) {
+      setMessage({ error: 'القرية مطلوبة', success: '' })
+      return
+    }
+
+const result = registerUser(store.users, {
+  name: emailForm.name,
+  email: emailForm.email,
+  village: emailForm.village,
+  password: '',
+  phone: `05${String(Date.now()).slice(-8)}`,
+  profileImage: DEFAULT_USER_AVATAR,
+  phoneVerified: true,
+})
 
     if (result.success) {
       store.setUsers(result.users)

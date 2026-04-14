@@ -1,4 +1,4 @@
-import { villages } from '../../data/seedData'
+
 
 // هذه الشاشة هي نقطة البداية: جوجل / آبل / هاتف / بريد إلكتروني.
 function AuthMainStep({ auth }) {
@@ -18,18 +18,6 @@ function AuthMainStep({ auth }) {
         placeholder="أدخل البريد الإلكتروني"
         onChange={(e) => auth.setEmailForm({ email: e.target.value })}
       />
-
-      <select
-        value={auth.emailForm.village}
-        onChange={(e) => auth.setEmailForm({ village: e.target.value })}
-      >
-        <option value="">اختر القرية</option>
-        {villages.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
-        ))}
-      </select>
 
       <button className="primary-btn block" onClick={auth.continueEmail}>متابعة</button>
     </>
