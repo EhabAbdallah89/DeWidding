@@ -1,17 +1,18 @@
 export class User {
   constructor({
-    id,
-    name,
-    phone,
-    email = '',
-    password,
-    village,
-    profileImage = '',
-    role = 'regular',
-    isActive = true,
-    myEvents = [],
-    phoneVerified = false,
-  }) {
+  id,
+  name,
+  phone,
+  email = '',
+  password,
+  village,
+  profileImage = '',
+  role = 'regular',
+  isActive = true,
+  myEvents = [],
+  phoneVerified = false,
+  phoneChangeUsed = false,
+}) {  
     this.id = id
     this.name = name
     this.phone = phone
@@ -23,6 +24,7 @@ export class User {
     this.isActive = isActive
     this.myEvents = myEvents
     this.phoneVerified = phoneVerified
+    this.phoneChangeUsed = phoneChangeUsed
   }
 
   static create(data) {
@@ -46,6 +48,7 @@ export class User {
       isActive: this.isActive,
       myEvents: this.myEvents,
       phoneVerified: this.phoneVerified,
+      phoneChangeUsed: this.phoneChangeUsed,
     }
   }
 }

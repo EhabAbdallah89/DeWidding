@@ -1,3 +1,5 @@
+// أدوات الصلاحيات والأدوار داخل التطبيق.
+
 export function isManagementUser(user) {
   return user?.role === 'admin' || user?.role === 'generalSupervisor' || user?.role === 'villageSupervisor'
 }
@@ -11,12 +13,17 @@ export function canManageUsers(user) {
 }
 
 export function canAddEvent(user, selectedVillage) {
-  if (!user) return false
-  if (user.role === 'admin') return true
-  if (user.role === 'generalSupervisor') return true
-  if (user.role === 'villageSupervisor') return user.village === selectedVillage
-  if (user.role === 'regular') return user.village === selectedVillage
-  return false
+  if (!user || !selectedVillage) return false
+
+  if (user.role === 'admin' || user.role === 'generalSupervisor') {
+    return true
+  }
+
+  if (user.role === 'villageSupervisor') {
+    return user.village === selectedVillage
+  }
+
+  return user.role === 'regular' && user.village === selectedVillage
 }
 
 export function getNewEventStatus(user, selectedVillage) {
@@ -60,11 +67,12 @@ export function canViewEvent(user, event) {
   return event.status === 'approved'
 }
 
+// الصفحات المسموحة حسب الدور.
 export function getAllowedPages(user) {
   if (!user) return ['auth']
-  if (user.role === 'admin') return ['dashboard', 'pending', 'users', 'my-events', 'profile']
-  if (isManagementUser(user)) return ['dashboard', 'pending', 'my-events', 'profile']
-  return ['dashboard', 'my-events', 'profile']
+  if (user.role === 'admin') return ['dashboard', 'pending', 'users', 'myEvents', 'profile', 'changePhone']
+  if (isManagementUser(user)) return ['dashboard', 'pending', 'myEvents', 'profile', 'changePhone']
+  return ['dashboard', 'myEvents', 'profile', 'changePhone']
 }
 
 export function getRoleLabel(role) {

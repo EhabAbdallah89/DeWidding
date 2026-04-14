@@ -1,4 +1,10 @@
+// هذا التخطيط مخصص للواجهة العامة قبل تسجيل الدخول.
 function PublicLayout({ children }) {
-  return <div className="layout"><div className="topbar"><div><div className="topbar-title">DEWEDDING</div><div className="topbar-subtitle">واجهة عامة قبل Firebase</div></div></div><div className="page-container">{children}</div></div>
+  return (
+    <div className="guest-shell">
+      <div className="guest-container">{children}</div>
+    </div>
+  )
 }
+
 export default PublicLayout

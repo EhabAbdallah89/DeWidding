@@ -1,7 +1,7 @@
 import { STORAGE_KEYS, loadValue, saveValue } from './storageService'
 import { mockUsers } from '../auth/mockUsers'
 import { User } from '../models/User'
-import { normalizeEmail, normalizePhone, normalizeText, isValidEmail, isStrongEnoughPassword } from '../utils/validation'
+import { normalizeEmail,isValidPhone, normalizePhone, normalizeText, isValidEmail, isStrongEnoughPassword } from '../utils/validation'
 
 function loadOtpStore() {
   return loadValue(STORAGE_KEYS.otpStore, {})
@@ -108,6 +108,13 @@ export function loginWithOtp(users, phone) {
 export function updateUserProfile(users, userId, payload) {
   const name = normalizeText(payload.name)
   const email = normalizeEmail(payload.email)
+  const phone = normalizeText(payload.phone)
+
+  const currentUser = users.find((user) => user.id === userId)
+
+  if (!currentUser) {
+    return { success: false, message: 'المستخدم غير موجود' }
+  }
 
   if (!name) {
     return { success: false, message: 'الاسم مطلوب' }
@@ -121,9 +128,33 @@ export function updateUserProfile(users, userId, payload) {
     return { success: false, message: 'البريد الإلكتروني غير صحيح' }
   }
 
-  const existingEmail = users.find((user) => user.id !== userId && normalizeEmail(user.email) === email)
+  if (!phone) {
+    return { success: false, message: 'رقم الهاتف مطلوب' }
+  }
+
+  if (!isValidPhone(phone)) {
+    return { success: false, message: 'رقم الهاتف غير صحيح' }
+  }
+
+  const existingEmail = users.find(
+    (user) => user.id !== userId && normalizeEmail(user.email) === email
+  )
   if (existingEmail) {
     return { success: false, message: 'البريد الإلكتروني مستخدم من قبل مستخدم آخر' }
+  }
+
+  const existingPhone = users.find(
+    (user) => user.id !== userId && normalizeText(user.phone) === phone
+  )
+  if (existingPhone) {
+    return { success: false, message: 'رقم الهاتف مستخدم من قبل مستخدم آخر' }
+  }
+
+  const phoneChanged = phone !== normalizeText(currentUser.phone)
+  const phoneChangeUsed = currentUser.phoneChangeUsed ?? false
+
+  if (phoneChanged && phoneChangeUsed) {
+    return { success: false, message: 'يمكن تعديل رقم الهاتف مرة واحدة فقط' }
   }
 
   return {
@@ -134,13 +165,14 @@ export function updateUserProfile(users, userId, payload) {
             ...user,
             name,
             email,
+            phone,
             profileImage: payload.profileImage,
+            phoneChangeUsed: phoneChanged ? true : (user.phoneChangeUsed ?? false),
           }
         : user
     ),
   }
 }
-
 export function updateUserVillage(users, targetUserId, village) {
   const nextVillage = normalizeText(village)
   if (!nextVillage) {
@@ -184,5 +216,44 @@ export function resetPasswordWithEmail(users, payload) {
     success: true,
     users: users.map((item) => (item.id === user.id ? { ...item, password: newPassword } : item)),
     message: 'تم تغيير كلمة المرور بنجاح',
+  }
+}
+
+export function updateUserProfileImage(users, userId, profileImage) {
+  const targetUser = users.find((user) => user.id === userId)
+
+  if (!targetUser) {
+    return {
+      success: false,
+      message: 'المستخدم غير موجود',
+    }
+  }
+
+  const updatedUsers = users.map((user) =>
+    user.id === userId
+      ? { ...user, profileImage }
+      : user
+  )
+
+  return {
+    success: true,
+    users: updatedUsers,
+  }
+}
+export function removeUserProfileImage(users, userId) {
+  const targetUser = users.find((user) => user.id === userId)
+
+  if (!targetUser) {
+    return { success: false, message: 'المستخدم غير موجود' }
+  }
+
+  const updatedUsers = users.map((user) =>
+    user.id === userId ? { ...user, profileImage: '' } : user
+  )
+
+  return {
+    success: true,
+    users: updatedUsers,
+    user: updatedUsers.find((user) => user.id === userId),
   }
 }
