@@ -24,8 +24,8 @@ function DashboardPage({ store, events }) {
     <>
       {store.currentUser?.role === 'admin' && <StatGrid counts={events.counts} />}
       <FilterBar store={store} />
-      <EventFormCard store={store} events={events} />
-      <NoticeBar notice={events.notice} />
+{store.currentPage !== 'pending' && <EventFormCard store={store} events={events} />}
+<NoticeBar notice={events.notice} />
       <EventSection title="الأحداث القادمة" items={source.upcoming} store={store} events={events} />
       <EventSection title="الأحداث السابقة" items={source.past} store={store} events={events} />
     </>

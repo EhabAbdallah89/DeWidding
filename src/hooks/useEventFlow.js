@@ -1,66 +1,61 @@
-import { useEffect, useState } from 'react'
 import { villages } from '../data/seedData'
-import { canAddEvent, canManageUsers } from '../utils/permissions'
 import { createEventActions } from './event-flow/eventActions'
-import { emptyEvent, emptyNotice, emptyProfileForm } from './event-flow/eventConstants'
 import { useEventCollections } from './event-flow/useEventCollections'
-import { useNoticeReset } from './event-flow/useNoticeReset'
+import { useEventFlowPermissions } from './event-flow/useEventFlowPermissions'
+import { useEventFlowResets } from './event-flow/useEventFlowResets'
+import { useEventFlowState } from './event-flow/useEventFlowState'
+import { emptyEvent } from './event-flow/eventConstants'
 
 // هذا المسار مسؤول عن إدارة الأحداث والملف الشخصي والإشعارات.
-// تم تقسيمه إلى: حالات + مجموعات مشتقة + إجراءات منفصلة.
+// تم تقسيمه إلى: حالات + صلاحيات + قوائم مشتقة + عمليات إعادة ضبط + Handlers.
 export function useEventFlow(store) {
   // ==============================
   // الحالات الأساسية (useState)
   // ==============================
-  const [showEventForm, setShowEventForm] = useState(false)
-  const [eventForm, setEventForm] = useState(emptyEvent)
-  const [profileForm, setProfileForm] = useState(emptyProfileForm)
-  const [notice, setNotice] = useState(emptyNotice)
+  const state = useEventFlowState()
 
   // ==============================
-  // القوائم المشتقة (useMemo داخل Hook منفصل)
+  // القوائم المشتقة (useMemo)
   // ==============================
-  const { dashboard, pending, myEvents, counts } = useEventCollections(store)
+  const collections = useEventCollections(store)
 
   // ==============================
-  // مزامنة الرسائل (useEffect داخل Hook منفصل)
+  // الصلاحيات
   // ==============================
-  useNoticeReset(store.selectedVillage, setNotice)
-useEffect(() => {
-  setNotice(emptyNotice)
-}, [store.currentPage, setNotice])
+  const permissions = useEventFlowPermissions(store)
+
+  // ==============================
+  // مزامنة الرسائل (useEffect)
+  // ==============================
+  useEventFlowResets(store, state.setNotice)
+
   // ==============================
   // الإجراءات / Handlers
   // ==============================
- const actions = createEventActions({
-  store,
-  eventForm,
-  setEventForm,
-  setShowEventForm,
-  profileForm,
-  setProfileForm,
-  setNotice,
-  emptyEvent,
-})
+  const actions = createEventActions({
+    store,
+    eventForm: state.eventForm,
+    setEventForm: state.setEventForm,
+    setShowEventForm: state.setShowEventForm,
+    profileForm: state.profileForm,
+    setProfileForm: state.setProfileForm,
+    setNotice: state.setNotice,
+    emptyEvent,
+  })
 
   return {
     villages,
-    eventForm,
-    setEventForm,
-    profileForm,
-    setProfileForm,
-    notice,
-    setNotice,
-    dashboard,
-    pending,
-    myEvents,
-    counts,
-    canAdd: canAddEvent(store.currentUser, store.selectedVillage),
-    canManageUsers: canManageUsers(store.currentUser),
-    showEventForm,
-    setShowEventForm,
+    eventForm: state.eventForm,
+    setEventForm: state.setEventForm,
+    profileForm: state.profileForm,
+    setProfileForm: state.setProfileForm,
+    notice: state.notice,
+    setNotice: state.setNotice,
+    showEventForm: state.showEventForm,
+    setShowEventForm: state.setShowEventForm,
+    ...collections,
+    ...permissions,
     ...actions,
-    saveProfile: () => actions.saveProfileFromForm(profileForm),
-    
+    saveProfile: () => actions.saveProfileFromForm(state.profileForm),
   }
 }

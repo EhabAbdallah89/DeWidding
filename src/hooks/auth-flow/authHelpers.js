@@ -2,7 +2,7 @@ import { villages } from '../../data/seedData'
 import { User } from '../../models/User'
 import { DEFAULT_USER_AVATAR } from '../../config/profileImages'
 import { findUserByEmail, findUserByPhone, registerUser, sendOtpCode, verifyOtpCode } from '../../services/userService'
-import { isValidEmail } from '../../utils/validation'
+import { isValidEmail, isValidPhone } from '../../utils/validation'
 // هذه المجموعة تحتوي على دوال مساعدة نقية لمسار التحقق.
 export function finishAuth(store, clear, resetEmailForm, resetPhoneForm, user, emailDraft, phoneDraft) {
   store.setCurrentUserId(user.id)

@@ -1,8 +1,30 @@
 import NoticeBar from '../components/NoticeBar'
+import ChangePhoneBackButton from '../components/profile/change-phone/ChangePhoneBackButton'
+import ChangePhoneInputRow from '../components/profile/change-phone/ChangePhoneInputRow'
+import ChangePhoneOtpRow from '../components/profile/change-phone/ChangePhoneOtpRow'
+import ChangePhonePreviewCode from '../components/profile/change-phone/ChangePhonePreviewCode'
 
 // هذه الصفحة مخصصة فقط لتغيير رقم الهاتف عبر OTP.
 function ChangePhonePage({ store, events }) {
   const phoneChangeUsed = store.currentUser?.phoneChangeUsed ?? false
+
+  const updatePendingPhone = (pendingPhone) => {
+    events.setProfileForm({
+      ...events.profileForm,
+      pendingPhone,
+      phoneVerified: false,
+      phoneOtpSent: false,
+      phoneOtp: '',
+      phoneOtpCodePreview: '',
+    })
+  }
+
+  const updateOtp = (phoneOtp) => {
+    events.setProfileForm({
+      ...events.profileForm,
+      phoneOtp,
+    })
+  }
 
   return (
     <>
@@ -10,83 +32,28 @@ function ChangePhonePage({ store, events }) {
 
       <section className="panel profile-grid">
         <div className="profile-form-side">
-
           <div className="profile-phone-section">
-  <div className="profile-row">
-    <div className="otp-field-group">
-      <input
-        type="text"
-        value={events.profileForm.pendingPhone}
-        placeholder="رقم الهاتف الجديد"
-        disabled={phoneChangeUsed}
-        onChange={(e) =>
-          events.setProfileForm({
-            ...events.profileForm,
-            pendingPhone: e.target.value,
-            phoneVerified: false,
-            phoneOtpSent: false,
-            phoneOtp: '',
-            phoneOtpCodePreview: '',
-          })
-        }
-      />
+            <ChangePhoneInputRow
+              value={events.profileForm.pendingPhone}
+              disabled={phoneChangeUsed}
+              onChange={updatePendingPhone}
+              onSendOtp={events.sendProfilePhoneOtp}
+            />
 
-      {!phoneChangeUsed && (
-        <button
-          type="button"
-          className="ghost-btn"
-          onClick={events.sendProfilePhoneOtp}
-        >
-          إرسال OTP
-        </button>
-      )}
-    </div>
-  </div>
+            <ChangePhoneOtpRow
+              value={events.profileForm.phoneOtp}
+              enabled={!phoneChangeUsed && events.profileForm.phoneOtpSent}
+              onChange={updateOtp}
+              onVerify={events.verifyProfilePhoneOtp}
+            />
 
-  {!phoneChangeUsed && (
-    <div className="profile-row">
-      <div className="otp-field-group">
-        <input
-          type="text"
-          value={events.profileForm.phoneOtp}
-          placeholder="رمز التحقق OTP"
-          disabled={!events.profileForm.phoneOtpSent}
-          onChange={(e) =>
-            events.setProfileForm({
-              ...events.profileForm,
-              phoneOtp: e.target.value,
-            })
-          }
-        />
+            <ChangePhonePreviewCode
+              code={events.profileForm.phoneOtpCodePreview}
+              disabled={phoneChangeUsed}
+            />
 
-        <button
-          type="button"
-          className="ghost-btn"
-          onClick={events.verifyProfilePhoneOtp}
-          disabled={!events.profileForm.phoneOtpSent}
-        >
-          تأكيد OTP
-        </button>
-      </div>
-    </div>
-  )}
-
-  {!phoneChangeUsed && events.profileForm.phoneOtpCodePreview && (
-    <p className="msg success">
-      رمز التحقق للتجربة: {events.profileForm.phoneOtpCodePreview}
-    </p>
-  )}
-
-  <div className="button-row">
-    <button
-      type="button"
-      className="ghost-btn"
-      onClick={() => store.setCurrentPage('profile')}
-    >
-      رجوع
-    </button>
-  </div>
-</div>
+            <ChangePhoneBackButton onBack={() => store.setCurrentPage('profile')} />
+          </div>
         </div>
       </section>
     </>

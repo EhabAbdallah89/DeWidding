@@ -16,13 +16,19 @@ export function useEventCollections(store) {
     [scopedEvents]
   )
 
-  const pending = useMemo(() => {
-    const pendingEvents = store.viewableEvents.filter(
-      (item) => item.status === 'pending' && (!store.selectedVillage || item.village === store.selectedVillage)
-    )
+const pending = useMemo(() => {
+  const isWidePendingView =
+    store.currentUser?.role === 'admin' ||
+    store.currentUser?.role === 'generalSupervisor'
 
-    return splitUpcomingAndPast(filterEvents(pendingEvents, store.search))
-  }, [store.search, store.selectedVillage, store.viewableEvents])
+  const pendingEvents = store.viewableEvents.filter((item) => {
+    if (item.status !== 'pending') return false
+    if (isWidePendingView) return true
+    return !store.selectedVillage || item.village === store.selectedVillage
+  })
+
+  return splitUpcomingAndPast(filterEvents(pendingEvents, store.search))
+}, [store.search, store.selectedVillage, store.viewableEvents, store.currentUser?.role])
 
   const myEvents = useMemo(() => {
     const ownedEvents = store.events.filter((item) => store.currentUser?.myEvents.includes(item.id))

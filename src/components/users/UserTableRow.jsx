@@ -1,6 +1,7 @@
-import { villages } from '../../data/seedData'
-import { getRoleLabel } from '../../utils/permissions'
-import { DEFAULT_USER_AVATAR } from '../../config/profileImages'
+import UserAvatarCell from './UserAvatarCell'
+import UserImageActionButton from './UserImageActionButton'
+import UserRoleSelect from './UserRoleSelect'
+import UserVillageSelect from './UserVillageSelect'
 
 // هذا الصف مسؤول عن إدارة مستخدم واحد في جدول الإدارة.
 function UserTableRow({ user, events }) {
@@ -8,38 +9,11 @@ function UserTableRow({ user, events }) {
     <tr>
       <td>{user.name}</td>
       <td>{user.phone}</td>
-      <td>
-        <img
-          src={user.profileImage || DEFAULT_USER_AVATAR}
-          width="40"
-          height="40"
-          style={{ borderRadius: '50%' }}
-        />
-      </td>
-      <td>
-        <button className="ghost-btn" onClick={() => events.adminRemoveUserImage(user.id)}>
-          حذف الصورة
-        </button>
-      </td>
+      <td><UserAvatarCell image={user.profileImage} /></td>
+      <td><UserImageActionButton onRemove={() => events.adminRemoveUserImage(user.id)} /></td>
       <td>{user.email}</td>
-      <td>
-        <select value={user.village} onChange={(e) => events.updateVillage(user.id, e.target.value)}>
-          {villages.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <select value={user.role} onChange={(e) => events.updateRole(user.id, e.target.value)}>
-          {['regular', 'villageSupervisor', 'generalSupervisor'].map((role) => (
-            <option key={role} value={role}>
-              {getRoleLabel(role)}
-            </option>
-          ))}
-        </select>
-      </td>
+      <td><UserVillageSelect value={user.village} onChange={(value) => events.updateVillage(user.id, value)} /></td>
+      <td><UserRoleSelect value={user.role} onChange={(value) => events.updateRole(user.id, value)} /></td>
     </tr>
   )
 }

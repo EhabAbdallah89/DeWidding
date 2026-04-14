@@ -13,7 +13,7 @@ export function getNavItems(user) {
   }
 
   const managementItems = [
-    { key: 'dashboard', label: 'لوحة التحكم' },
+    { key: 'dashboard', label: 'الرئيسية' },
     { key: 'myEvents', label: 'أعراسي' },
     { key: 'profile', label: 'الملف الشخصي' },
   ]
