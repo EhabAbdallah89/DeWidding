@@ -1,8 +1,9 @@
 import { villages } from '../../data/seedData'
-import { User } from '../../models/User'
 import { DEFAULT_USER_AVATAR } from '../../config/profileImages'
-import { findUserByEmail, findUserByPhone, registerUser, sendOtpCode, verifyOtpCode } from '../../services/userService'
+import { findUserByEmail, findUserByPhone } from '../../services/user-service/userFinders'
+import { sendOtpCode, verifyOtpCode } from '../../services/userService'
 import { isValidEmail, isValidPhone } from '../../utils/validation'
+import { createUserInSupabase } from '../../services/supabaseUserService'
 // هذه المجموعة تحتوي على دوال مساعدة نقية لمسار التحقق.
 export function finishAuth(store, clear, resetEmailForm, resetPhoneForm, user, emailDraft, phoneDraft) {
   store.setCurrentUserId(user.id)
@@ -11,30 +12,32 @@ export function finishAuth(store, clear, resetEmailForm, resetPhoneForm, user, e
   resetPhoneForm(phoneDraft)
 }
 
-export function createSocialUser(store, finish, label, email) {
+export async function createSocialUser(store, finish, label, email) {
   const existingUser = findUserByEmail(store.users, email)
   if (existingUser) {
     finish(existingUser)
     return
   }
 
-  const user = User.create({
+  const result = await createUserInSupabase({
     name: `${label} User`,
     email,
     phone: `05${String(Date.now()).slice(-8)}`,
     village: villages[0],
-    role: 'regular',
-    myEvents: [],
-    phoneVerified: true,
     password: '',
     profileImage: DEFAULT_USER_AVATAR,
-  }).toJSON()
+    phoneVerified: true,
+  })
 
-  store.setUsers((prev) => [...prev, user])
-  finish(user)
+  if (!result.success) {
+    return
+  }
+
+  store.setUsers((prev) => [...prev, result.data])
+  finish(result.data)
 }
 
-export function handleEmailContinuation({ mode, emailForm, phoneForm, setMode, setMessage, store, finish }) {
+export async  function handleEmailContinuation({ mode, emailForm, phoneForm, setMode, setMessage, store, finish }) {
   if (mode === 'emailProfile') {
     if (!emailForm.name.trim()) {
       setMessage({ error: 'الاسم الكامل مطلوب', success: '' })
@@ -46,7 +49,7 @@ export function handleEmailContinuation({ mode, emailForm, phoneForm, setMode, s
       return
     }
 
-const result = registerUser(store.users, {
+const result = await createUserInSupabase({
   name: emailForm.name,
   email: emailForm.email,
   village: emailForm.village,
@@ -56,11 +59,11 @@ const result = registerUser(store.users, {
   phoneVerified: true,
 })
 
-    if (result.success) {
-      store.setUsers(result.users)
-      finish(result.user)
-      return
-    }
+   if (result.success) {
+  store.setUsers((prev) => [...prev, result.data])
+  finish(result.data)
+  return
+}
 
     setMessage({ error: result.message, success: '' })
     return
@@ -115,7 +118,7 @@ export function handlePhoneOtpVerification({ store, phoneForm, setMode, setMessa
   setMessage({ error: '', success: 'أكمل بيانات حساب الهاتف' })
 }
 
-export function handlePhoneUserCreation({ store, phoneForm, setMessage, finish }) {
+export async function handlePhoneUserCreation({ store, phoneForm, setMessage, finish }) {
   if (!phoneForm.name.trim()) {
     setMessage({ error: 'الاسم مطلوب', success: '' })
     return
@@ -126,7 +129,7 @@ export function handlePhoneUserCreation({ store, phoneForm, setMessage, finish }
     return
   }
 
-  const result = registerUser(store.users, {
+  const result = await createUserInSupabase({
     ...phoneForm,
     email: phoneForm.email || `phone.${Date.now()}@dewedding.local`,
     password: '',
@@ -135,8 +138,8 @@ export function handlePhoneUserCreation({ store, phoneForm, setMessage, finish }
   })
 
   if (result.success) {
-    store.setUsers(result.users)
-    finish(result.user)
+    store.setUsers((prev) => [...prev, result.data])
+    finish(result.data)
     return
   }
 

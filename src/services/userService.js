@@ -1,24 +1,27 @@
-import { mockUsers } from '../auth/mockUsers'
-import { User } from '../models/User'
 import { normalizeEmail, normalizePhone } from '../utils/validation'
-import { STORAGE_KEYS, loadValue, saveValue } from './storageService'
 import { findUserByEmail, findUserByPhone } from './user-service/userFinders'
 import { applyPasswordReset, applyProfileImageRemoval, applyProfileImageUpdate, applyProfileUpdate, applyRoleUpdate, applyVillageUpdate } from './user-service/userMutations'
 import { loadOtpStore, saveOtpStore } from './user-service/otpStore'
-import { normalizeRegistrationPayload, normalizeUserPayload } from './user-service/userNormalization'
 import { validatePasswordReset, validateProfilePayload, validateRole, validateVillage } from './user-service/userValidators'
+// import { mockUsers } from '../auth/mockUsers'
+// import { User } from '../models/User'
+// import { normalizeRegistrationPayload, normalizeUserPayload } from './user-service/userNormalization'
+// import { STORAGE_KEYS, loadValue, saveValue } from './storageService'
+
 
 // هذا الملف هو الواجهة العامة لخدمات المستخدمين.
 // تم تقسيم التفاصيل إلى ملفات صغيرة للحفاظ على البساطة.
-export function loadUsers() {
-  const storedUsers = loadValue(STORAGE_KEYS.usersData, mockUsers)
-  const sourceUsers = Array.isArray(storedUsers) ? storedUsers : mockUsers
-  return sourceUsers.map((user) => normalizeUserPayload(user))
-}
 
-export function saveUsers(users) {
-  saveValue(STORAGE_KEYS.usersData, users.map((user) => normalizeUserPayload(user)))
-}
+// export function loadUsers() {
+//   const storedUsers = loadValue(STORAGE_KEYS.usersData, mockUsers)
+//   const sourceUsers = Array.isArray(storedUsers) ? storedUsers : mockUsers
+//   return sourceUsers.map((user) => normalizeUserPayload(user))
+// }
+
+
+// export function saveUsers(users) {
+//   saveValue(STORAGE_KEYS.usersData, users.map((user) => normalizeUserPayload(user)))
+// }
 
 export { findUserByPhone, findUserByEmail }
 
@@ -42,25 +45,25 @@ export function verifyOtpCode(phone, code, purpose = 'login') {
   return { success: true, message: 'تم التحقق من الرمز بنجاح' }
 }
 
-export function registerUser(users, userData) {
-  const normalizedUserData = normalizeRegistrationPayload(userData)
-  const existingPhone = findUserByPhone(users, normalizedUserData.phone)
-  if (existingPhone) return { success: false, message: 'رقم الهاتف مسجل مسبقًا' }
+// export function registerUser(users, userData) {
+//   const normalizedUserData = normalizeRegistrationPayload(userData)
+//   const existingPhone = findUserByPhone(users, normalizedUserData.phone)
+//   if (existingPhone) return { success: false, message: 'رقم الهاتف مسجل مسبقًا' }
 
-  const existingEmail = findUserByEmail(users, normalizedUserData.email)
-  if (existingEmail) return { success: false, message: 'البريد الإلكتروني مسجل مسبقًا' }
+//   const existingEmail = findUserByEmail(users, normalizedUserData.email)
+//   if (existingEmail) return { success: false, message: 'البريد الإلكتروني مسجل مسبقًا' }
 
-  if (!normalizedUserData.phoneVerified) return { success: false, message: 'يجب توثيق رقم الهاتف قبل التسجيل' }
+//   if (!normalizedUserData.phoneVerified) return { success: false, message: 'يجب توثيق رقم الهاتف قبل التسجيل' }
 
-  const newUser = User.create({
-    ...normalizedUserData,
-    role: 'regular',
-    myEvents: [],
-    phoneVerified: true,
-  }).toJSON()
+//   const newUser = User.create({
+//     ...normalizedUserData,
+//     role: 'regular',
+//     myEvents: [],
+//     phoneVerified: true,
+//   }).toJSON()
 
-  return { success: true, user: newUser, users: [...users, newUser] }
-}
+//   return { success: true, user: newUser, users: [...users, newUser] }
+// }
 
 export function loginWithPassword(users, phone, password) {
   const normalizedPhone = normalizePhone(phone)

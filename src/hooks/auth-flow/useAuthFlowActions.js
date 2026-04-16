@@ -19,8 +19,8 @@ export function useAuthFlowActions(store, state) {
     finishAuth(store, clear, state.setEmailForm, state.setPhoneForm, user, emailDraft, phoneDraft)
   }
 
-  const continueEmail = () => {
-    handleEmailContinuation({
+  const continueEmail = async () => {
+    await handleEmailContinuation({
       mode: state.mode,
       emailForm: state.emailForm,
       phoneForm: state.phoneForm,
@@ -49,8 +49,8 @@ export function useAuthFlowActions(store, state) {
     })
   }
 
-  const createPhoneUser = () => {
-    handlePhoneUserCreation({
+  const createPhoneUser = async () => {
+    await handlePhoneUserCreation({
       store,
       phoneForm: state.phoneForm,
       setMessage: state.setMessage,

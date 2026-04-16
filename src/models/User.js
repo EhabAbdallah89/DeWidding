@@ -48,7 +48,7 @@ export class User {
       isActive: this.isActive,
       myEvents: this.myEvents,
       phoneVerified: this.phoneVerified,
-      phoneChangeUsed: this.phoneChangeUse
+      phoneChangeUsed: this.phoneChangeUsed,
     }
   }
 }
