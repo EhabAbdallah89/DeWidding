@@ -1,13 +1,18 @@
+// Email + Social + finish
 import {
   createSocialUser,
   finishAuth,
   handleEmailContinuation,
+} from './authHelpers'
+
+// Phone flow
+import {
   handlePhoneOtpSend,
   handlePhoneOtpVerification,
   handlePhoneUserCreation,
-} from './authHelpers'
-import { emailDraft, emptyAuthMessage, phoneDraft } from './authDrafts'
+} from './helpers/phoneAuthHelpers'
 
+import { emailDraft, emptyAuthMessage, phoneDraft } from './authDrafts'
 // هذه الدالة تجمع كل العمليات الخاصة بمسار التحقق.
 export function useAuthFlowActions(store, state) {
   const clear = (nextMode = 'main') => {
@@ -33,10 +38,12 @@ export function useAuthFlowActions(store, state) {
 
   const sendPhoneOtp = () => {
     handlePhoneOtpSend({
-      phoneForm: state.phoneForm,
-      setPhoneForm: state.setPhoneForm,
-      setMessage: state.setMessage,
-    })
+  store,
+  phoneForm: state.phoneForm,
+  setPhoneForm: state.setPhoneForm,
+  setMessage: state.setMessage,
+  finish,
+})
   }
 
   const verifyPhoneOtp = () => {

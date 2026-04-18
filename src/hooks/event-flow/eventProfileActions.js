@@ -7,8 +7,12 @@ import {
   removeUserProfileImage,
   updateUserProfileImage,
 } from '../../services/userService'
-import { prepareProfileImage } from '../../utils/imageHelpers'
+import { refreshUsersFromSupabase } from '../auth-flow/helpers/userSyncHelpers'
 import { isValidPhone } from '../../utils/validation'
+import { uploadProfileImage } from '../../services/supabaseStorageService'
+import { supabase } from '../../lib/supabaseClient'
+
+
 // هذه الدالة تجمع كل ما يخص الملف الشخصي والمستخدمين و OTP.
 export function createEventProfileActions({
   store,
@@ -54,45 +58,37 @@ export function createEventProfileActions({
   writeNotice('', 'تم حفظ الملف الشخصي')
 }
 
-  const updateRole = (userId, role) => {
-    const result = updateUserRole(store.users, userId, role)
+const updateRole = async (userId, role) => {
+  return store.updateUserRole(userId, role)
+}
+
+const updateVillage = async (userId, village) => {
+  return updateUserVillage(userId, village)
+}
+
+ const updateMyImage = async (file) => {
+  try {
+    const uploadResult = await uploadProfileImage(file, store.currentUser.id)
+
+    if (!uploadResult.success) {
+      writeNotice(uploadResult.message)
+      return
+    }
+
+    const result = updateUserProfileImage(store.users, store.currentUser.id, uploadResult.url)
+
     if (!result.success) {
       writeNotice(result.message)
       return
     }
 
     patchUsers(result.users)
-    writeNotice('', 'تم تحديث الدور')
+    setProfileForm((prev) => ({ ...prev, profileImage: uploadResult.url }))
+    writeNotice('', 'تم تحديث الصورة الشخصية')
+  } catch {
+    writeNotice('فشل في رفع الصورة')
   }
-
-  const updateVillage = (userId, village) => {
-    const result = updateUserVillage(store.users, userId, village)
-    if (!result.success) {
-      writeNotice(result.message)
-      return
-    }
-
-    patchUsers(result.users)
-    writeNotice('', 'تم تحديث القرية')
-  }
-
-  const updateMyImage = async (file) => {
-    try {
-      const profileImage = await prepareProfileImage(file)
-      const result = updateUserProfileImage(store.users, store.currentUser.id, profileImage)
-
-      if (!result.success) {
-        writeNotice(result.message)
-        return
-      }
-
-      patchUsers(result.users)
-      setProfileForm((prev) => ({ ...prev, profileImage }))
-      writeNotice('', 'تم تحديث الصورة الشخصية')
-    } catch {
-      writeNotice('فشل في معالجة الصورة')
-    }
-  }
+}
 
   const adminRemoveUserImage = (userId) => {
     const result = removeUserProfileImage(store.users, userId)

@@ -1,3 +1,4 @@
+import { DEFAULT_USER_AVATAR } from '../config/profileImages'
 // ממיר רשומת משתמש מ-Supabase למבנה שהאפליקציה כבר מכירה
 export function mapSupabaseUserToAppUser(row) {
   if (!row) return null
@@ -9,7 +10,9 @@ export function mapSupabaseUserToAppUser(row) {
     email: row.email || '',
     password: row.password || '',
     village: row.village || '',
-    profileImage: row.profile_image || '',
+    profileImage:!row.profile_image || row.profile_image.startsWith('/src/')
+       ? DEFAULT_USER_AVATAR    : row.profile_image,
+
     role: row.role || 'regular',
     isActive: row.is_active ?? true,
     myEvents: row.my_events || [],

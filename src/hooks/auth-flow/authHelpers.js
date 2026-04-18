@@ -1,9 +1,10 @@
 import { villages } from '../../data/seedData'
 import { DEFAULT_USER_AVATAR } from '../../config/profileImages'
-import { findUserByEmail, findUserByPhone } from '../../services/user-service/userFinders'
-import { sendOtpCode, verifyOtpCode } from '../../services/userService'
-import { isValidEmail, isValidPhone } from '../../utils/validation'
+import { findUserByEmail } from '../../services/user-service/userFinders'
+import { isValidEmail } from '../../utils/validation'
 import { createUserInSupabase } from '../../services/supabaseUserService'
+import { refreshUsersFromSupabase } from './helpers/userSyncHelpers'
+
 // هذه المجموعة تحتوي على دوال مساعدة نقية لمسار التحقق.
 export function finishAuth(store, clear, resetEmailForm, resetPhoneForm, user, emailDraft, phoneDraft) {
   store.setCurrentUserId(user.id)
@@ -33,11 +34,18 @@ export async function createSocialUser(store, finish, label, email) {
     return
   }
 
-  store.setUsers((prev) => [...prev, result.data])
-  finish(result.data)
+  // 🔥 במקום patch לוקאלי → רענון מה־DB
+  const refreshResult = await refreshUsersFromSupabase(store)
+
+  if (!refreshResult.success) {
+    return
+  }
+
+  const updatedUser = refreshResult.data.find(u => u.id === result.data.id)
+  finish(updatedUser)
 }
 
-export async  function handleEmailContinuation({ mode, emailForm, phoneForm, setMode, setMessage, store, finish }) {
+export async function handleEmailContinuation({ mode, emailForm, phoneForm, setMode, setMessage, store, finish }) {
   if (mode === 'emailProfile') {
     if (!emailForm.name.trim()) {
       setMessage({ error: 'الاسم الكامل مطلوب', success: '' })
@@ -49,19 +57,26 @@ export async  function handleEmailContinuation({ mode, emailForm, phoneForm, set
       return
     }
 
-const result = await createUserInSupabase({
-  name: emailForm.name,
-  email: emailForm.email,
-  village: emailForm.village,
-  password: '',
-  phone: `05${String(Date.now()).slice(-8)}`,
-  profileImage: DEFAULT_USER_AVATAR,
-  phoneVerified: true,
-})
+    const result = await createUserInSupabase({
+      name: emailForm.name,
+      email: emailForm.email,
+      village: emailForm.village,
+      password: '',
+      phone: `05${String(Date.now()).slice(-8)}`,
+      profileImage: DEFAULT_USER_AVATAR,
+      phoneVerified: true,
+    })
 
-   if (result.success) {
-  store.setUsers((prev) => [...prev, result.data])
-  finish(result.data)
+    if (result.success) {
+  const refreshResult = await refreshUsersFromSupabase(store)
+
+  if (!refreshResult.success) {
+    setMessage({ error: refreshResult.message, success: '' })
+    return
+  }
+
+  const updatedUser = refreshResult.data.find((u) => u.id === result.data.id)
+  finish(updatedUser)
   return
 }
 
@@ -82,66 +97,4 @@ const result = await createUserInSupabase({
 
   setMode('emailProfile')
   setMessage({ error: '', success: 'أكمل بيانات الحساب للمتابعة' })
-}
-
-export function handlePhoneOtpSend({ phoneForm, setPhoneForm, setMessage }) {
-  if (!isValidPhone(phoneForm.phone)) {
-    setMessage({ error: 'رقم الهاتف غير صحيح', success: '' })
-    return
-  }
-
-  if (!phoneForm.consent) {
-    setMessage({ error: 'يجب الموافقة على استلام رسائل التحقق قبل المتابعة', success: '' })
-    return
-  }
-
-  const result = sendOtpCode(phoneForm.phone, 'login')
-  setPhoneForm((prev) => ({ ...prev, sentCode: result.code }))
-  setMessage({ error: '', success: 'تم تجهيز رمز التحقق للاختبار' })
-}
-
-export function handlePhoneOtpVerification({ store, phoneForm, setMode, setMessage, finish }) {
-  const otpResult = verifyOtpCode(phoneForm.phone, phoneForm.otp, 'login')
-
-  if (!otpResult.success) {
-    setMessage({ error: otpResult.message, success: '' })
-    return
-  }
-
-  const existingUser = findUserByPhone(store.users, phoneForm.phone)
-  if (existingUser) {
-    finish(existingUser)
-    return
-  }
-
-  setMode('phoneProfile')
-  setMessage({ error: '', success: 'أكمل بيانات حساب الهاتف' })
-}
-
-export async function handlePhoneUserCreation({ store, phoneForm, setMessage, finish }) {
-  if (!phoneForm.name.trim()) {
-    setMessage({ error: 'الاسم مطلوب', success: '' })
-    return
-  }
-
-  if (phoneForm.email && !isValidEmail(phoneForm.email)) {
-    setMessage({ error: 'البريد الإلكتروني غير صحيح', success: '' })
-    return
-  }
-
-  const result = await createUserInSupabase({
-    ...phoneForm,
-    email: phoneForm.email || `phone.${Date.now()}@dewedding.local`,
-    password: '',
-    profileImage: '',
-    phoneVerified: true,
-  })
-
-  if (result.success) {
-    store.setUsers((prev) => [...prev, result.data])
-    finish(result.data)
-    return
-  }
-
-  setMessage({ error: result.message, success: '' })
 }

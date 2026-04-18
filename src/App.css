@@ -9,6 +9,39 @@
   gap: 12px;
 }
 
+.auth-field {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.auth-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: right;
+}
+
+.phone-row {
+  width: 100%;
+}
+
+.phone-row input,
+.auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid #cfd6df;
+  border-radius: 14px;
+  font-size: 16px;
+  background: #fff;
+}
+
+.phone-row input:focus,
+.auth-input:focus {
+  outline: none;
+  border-color: #0f172a;
+}
 .form-stack h3 {
   margin: 0 0 6px;
 }
@@ -42,7 +75,7 @@ input, select { width: 100%; padding: 12px 14px; border: 1px solid #d1d5db; bord
 .link-btn { background: transparent; color: #6b7280; padding: 0; text-align: left; }
 .divider { display: flex; align-items: center; gap: 12px; margin: 4px 0; color: #6b7280; }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
-.phone-row { display: grid; grid-template-columns: 88px 1fr; gap: 10px; }
+/* .phone-row { display: grid; grid-template-columns: 88px 1fr; gap: 10px; } */
 .phone-row span { display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 14px; background: #f9fafb; }
 .check-row { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
 .check-row input { width: 16px; margin-top: 3px; }

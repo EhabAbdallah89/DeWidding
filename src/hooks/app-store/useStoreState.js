@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { loadEvents } from '../../services/eventService'
-import { loadUsers } from '../../services/userService'
 import { STORAGE_KEYS, loadValue } from '../../services/storageService'
 import { getUsersFromSupabase } from '../../services/supabaseUserService'
 
@@ -18,7 +17,6 @@ const [users, setUsers] = useState([])
     const result = await getUsersFromSupabase()
 
     if (result.success) {
-      console.log('USERS LOADED FROM SUPABASE:', result.data)
       setUsers(result.data)
     } else {
       console.error('SUPABASE USERS LOAD ERROR:', result.message)
